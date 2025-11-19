@@ -230,20 +230,36 @@ const fields = message
 
 ### 6. Transaction Management
 
-**Manual BEGIN/COMMIT/ROLLBACK** (lines 444-482):
+**Transaction Lifecycle & usePhantomQuery Coupling**
+
+This adapter uses `usePhantomQuery: true`, which is **tightly coupled** with how we handle transaction lifecycle:
+
+| Setting | COMMIT/ROLLBACK handled by | Phantom queries sent? |
+|---------|---------------------------|----------------------|
+| `usePhantomQuery: true` | **Adapter** (our code) | ✅ Yes (state verification) |
+| `usePhantomQuery: false` | **Prisma Engine** | ❌ No |
+
+**Our Implementation** (lines 444-482):
 
 ```typescript
 async startTransaction(isolationLevel?: IsolationLevel): Promise<Transaction> {
+  // Acquire mutex to prevent concurrent transactions
+  const releaseMutex = await this.transactionMutex.acquire();
+
   // SQLite only supports SERIALIZABLE
   if (isolationLevel && isolationLevel !== "SERIALIZABLE") {
+    releaseMutex();
     throw new DriverAdapterError({ kind: "InvalidIsolationLevel", ... });
   }
 
-  // Begin transaction
+  // Begin transaction explicitly
   this.db.run("BEGIN DEFERRED");
   this.transactionActive = true;
 
-  return new BunSQLiteTransaction(this.db, options, this.adapterOptions, onComplete);
+  return new BunSQLiteTransaction(this.db, options, this.adapterOptions, () => {
+    this.transactionActive = false;
+    releaseMutex();
+  });
 }
 ```
 
@@ -252,20 +268,65 @@ async startTransaction(isolationLevel?: IsolationLevel): Promise<Transaction> {
 ```typescript
 class BunSQLiteTransaction extends BunSQLiteQueryable implements Transaction {
   async commit(): Promise<void> {
+    // With usePhantomQuery: true, adapter MUST call COMMIT
     this.db.run("COMMIT");
-    this.onComplete();  // Reset transactionActive flag
+    this.onComplete();  // Reset transactionActive flag + release mutex
   }
 
   async rollback(): Promise<void> {
+    // With usePhantomQuery: true, adapter MUST call ROLLBACK
     this.db.run("ROLLBACK");
     this.onComplete();
   }
 }
 ```
 
-**Why `usePhantomQuery: true`?**
-- Required for Prisma to work with manual transaction management
-- Official adapter uses same approach with better-sqlite3
+**Why Manual BEGIN/COMMIT/ROLLBACK?**
+
+1. **usePhantomQuery: true requires it**: When this flag is enabled, Prisma expects the adapter to manage the full transaction lifecycle
+2. **Matches @prisma/adapter-libsql**: The official libsql adapter uses the same pattern
+3. **Different from better-sqlite3**: That adapter uses `usePhantomQuery: false` and lets Prisma handle COMMIT/ROLLBACK
+
+**IMPORTANT**: These two settings MUST be changed together:
+- If we switch to `usePhantomQuery: false`, we must remove COMMIT/ROLLBACK from transaction methods
+- If we keep `usePhantomQuery: true`, we must keep explicit COMMIT/ROLLBACK
+- Mixing them causes "Transaction already closed" or uncommitted writes
+
+**AsyncMutex for Transaction Serialization**
+
+SQLite only allows one write transaction at a time. We use a custom AsyncMutex (34 lines, zero dependencies) to serialize transactions:
+
+```typescript
+class AsyncMutex {
+  private locked = false;
+  private queue: Array<() => void> = [];
+
+  async acquire(): Promise<() => void> {
+    if (!this.locked) {
+      this.locked = true;
+      return () => this.release();
+    }
+    // Queue if already locked
+    return new Promise<() => void>((resolve) => {
+      this.queue.push(() => {
+        this.locked = true;
+        resolve(() => this.release());
+      });
+    });
+  }
+
+  private release(): void {
+    const next = this.queue.shift();
+    if (next) next();
+    else this.locked = false;
+  }
+}
+```
+
+**Why custom AsyncMutex instead of a library?**
+- Zero dependencies goal
+- Simple implementation (34 lines)
+- Sufficient for SQLite's single-writer model
 
 ### 7. Script Execution
 
@@ -310,6 +371,145 @@ export class PrismaBunSQLite {
 }
 ```
 
+## Critical Fixes in v0.1.1
+
+This section documents critical bugs discovered and fixed after the initial v0.1.0 release.
+
+### 1. Data Corruption with Duplicate Column Names (CRITICAL)
+
+**The Bug:**
+
+When queries returned duplicate column names (common in JOINs), using `stmt.all()` caused data corruption:
+
+```typescript
+// Query: SELECT User.id, Profile.id, User.name, Profile.bio FROM User JOIN Profile ...
+// BEFORE (BUGGY):
+const rows = stmt.all(...args);
+// Returns: [{ id: 10, name: "Alice", bio: "..." }]
+// ❌ Lost User.id! Only kept Profile.id
+
+const rowArrays = rows.map(row => columnNames.map(col => row[col]));
+// Returns: [[10, 10, "Alice", "..."]]  // Wrong! Both IDs are the same
+```
+
+**The Fix:**
+
+Changed to `stmt.values()` which returns arrays instead of objects:
+
+```typescript
+// AFTER (FIXED):
+const rowArrays = stmt.values(...args);
+// Returns: [[5, 10, "Alice", "..."]]  // Correct! User.id=5, Profile.id=10
+```
+
+**Impact:** Without this fix, any query with duplicate column names would silently return wrong data.
+
+**Test Added:** `$queryRaw - preserves all columns in joins (duplicate names)` (line 753 in test-suite.ts)
+
+### 2. Error Mapping Broken (CRITICAL)
+
+**The Bug:**
+
+Bun SQLite errors sometimes only have `.errno` (number) without `.code` (string):
+
+```typescript
+// Bun returns: { errno: 1, code: undefined, message: "..." }
+// BEFORE (BUGGY):
+if (!error?.code) throw error;  // ❌ Unhandled error!
+```
+
+**The Fix:**
+
+Added full errno-to-code mapping:
+
+```typescript
+const SQLITE_ERROR_MAP: Record<number, string> = {
+  1: "SQLITE_ERROR",
+  5: "SQLITE_BUSY",
+  2067: "SQLITE_CONSTRAINT_UNIQUE",
+  // ... all 25+ SQLite error codes
+};
+
+function convertDriverError(error: any): any {
+  // Accept both .code and .errno
+  const code = error.code || SQLITE_ERROR_MAP[error.errno] || "SQLITE_UNKNOWN";
+  // ... rest of error mapping
+}
+```
+
+**Impact:** Without this fix, many errors (missing table, syntax errors) were not properly wrapped as Prisma errors.
+
+**Tests Added:**
+- `Missing table error is properly wrapped (errno-only error)` (line 993)
+- `Syntax error is properly wrapped (errno-only error)` (line 1003)
+
+### 3. BigInt Precision Loss Prevention
+
+**The Issue:**
+
+JavaScript numbers can't safely represent integers beyond `Number.MAX_SAFE_INTEGER` (2^53-1), but SQLite supports 64-bit integers (2^63-1).
+
+**The Solution:**
+
+Enable `safeIntegers: true` by default:
+
+```typescript
+export type PrismaBunSqlite3Options = {
+  /**
+   * Enable safe 64-bit integer handling.
+   * When true, BIGINT columns return as BigInt instead of number,
+   * preventing precision loss for values > Number.MAX_SAFE_INTEGER.
+   * @default true
+   */
+  safeIntegers?: boolean;
+};
+
+// In factory:
+const safeIntegers = this.config.safeIntegers !== false;  // Default: true
+const db = new Database(dbPath, { safeIntegers });
+```
+
+**Impact:** Prevents silent data corruption when working with large integers (timestamps, IDs, etc).
+
+**Test Added:** `BigInt handling - maximum 64-bit values (2^63-1)` (adapter-specific)
+
+### 4. Statement Metadata Access (ACCEPTABLE RISK)
+
+**The Issue:**
+
+We access undocumented Bun APIs to get query metadata:
+
+```typescript
+const columnNames = (stmt as any).columnNames || [];
+const declaredTypes = (stmt as any).declaredTypes || [];
+```
+
+**Why Needed:**
+
+- Essential for preserving column order in results
+- Required for proper type coercion
+- No official Bun API exists (as of Bun v1.1.x)
+
+**Safeguards:**
+
+1. Fallback to empty arrays if properties don't exist
+2. Detect column count mismatches and generate placeholder names:
+   ```typescript
+   if (firstRow && firstRow.length > columnNames.length) {
+     const missingCount = actualColumnCount - columnNames.length;
+     for (let i = 0; i < missingCount; i++) {
+       columnNames.push(`column_${columnNames.length}`);
+     }
+   }
+   ```
+
+**Status:** Acceptable risk. Works reliably in practice. Future improvements:
+- File Bun issue to make these official APIs
+- Add runtime checks for property existence
+- Document in code comments
+
+**Documented:** Added explanatory comments in v0.1.1 (see lines 382-387 in src/bunsqlite-adapter.ts)
+
 ## Comparison with Official Adapters
 
 ### vs `@prisma/adapter-better-sqlite3`
@@ -320,25 +520,38 @@ export class PrismaBunSQLite {
 | **API Type** | Synchronous | Synchronous |
 | **Dependencies** | `better-sqlite3` (native) | Zero (Bun built-in) |
 | **executeScript** | `db.exec()` | `db.exec()` ✅ |
-| **Error Codes** | String codes | String codes ✅ |
+| **Error Codes** | String codes + errno map | String codes + errno map ✅ |
 | **Argument Mapping** | `mapArg()` | `mapArg()` ✅ |
 | **Boolean Conversion** | `1/0` | `1/0` ✅ |
-| **Transaction Method** | Manual BEGIN/COMMIT | Manual BEGIN/COMMIT ✅ |
-| **Transaction Safety** | `async-mutex` library | Simple `transactionActive` flag |
-| **Column Detection** | `stmt.columns()` API | `PRAGMA table_info()` |
+| **usePhantomQuery** | `false` (Prisma handles tx) | `true` (adapter handles tx) |
+| **Transaction Method** | No explicit COMMIT/ROLLBACK | Manual BEGIN/COMMIT/ROLLBACK |
+| **Transaction Safety** | `async-mutex` library | Custom AsyncMutex (34 lines) |
+| **Column Detection** | `stmt.columns()` API | `stmt.values()` + metadata |
 | **DateTime Format** | Options support | Options support ✅ |
+| **Safe Integers** | Optional | Default enabled ✅ |
 
 **Key Differences:**
 
-1. **Transaction Locking**:
-   - better-sqlite3: Uses `async-mutex` library to prevent concurrent transactions
-   - Ours: Simple `transactionActive` boolean flag
-   - **Rationale**: SQLite is single-threaded anyway; simpler approach works fine
+1. **Transaction Lifecycle** (IMPORTANT):
+   - **better-sqlite3**: Uses `usePhantomQuery: false`, so Prisma Engine sends COMMIT/ROLLBACK queries. The adapter's `commit()` method just releases a mutex.
+   - **Ours**: Uses `usePhantomQuery: true`, so the adapter MUST call `db.run("COMMIT")` and `db.run("ROLLBACK")` explicitly.
+   - **Both are correct**: These are two valid design patterns. Matches `@prisma/adapter-libsql` which also uses `usePhantomQuery: true`.
+   - **Rationale**: The two approaches are tightly coupled - changing one requires changing the other.
 
-2. **Column Type Detection**:
-   - better-sqlite3: `stmt.columns()` returns column metadata from better-sqlite3
-   - Ours: `PRAGMA table_info()` queries schema directly
-   - **Rationale**: PRAGMA gives schema-declared types, more accurate
+2. **Transaction Locking**:
+   - **better-sqlite3**: Uses `async-mutex` npm package (dependency)
+   - **Ours**: Custom AsyncMutex implementation (34 lines, zero dependencies)
+   - **Rationale**: SQLite is single-threaded; simple queue-based mutex sufficient
+
+3. **Column Data Retrieval**:
+   - **better-sqlite3**: Uses `stmt.all()` to get objects, then `stmt.columns()` for metadata
+   - **Ours**: Uses `stmt.values()` to get arrays (preserves duplicate columns)
+   - **Rationale**: Arrays prevent data corruption when column names duplicate (JOINs)
+
+4. **Safe Integers**:
+   - **better-sqlite3**: Opt-in (`safeIntegers: false` by default)
+   - **Ours**: Opt-out (`safeIntegers: true` by default)
+   - **Rationale**: Prevent silent data corruption by default
 
 ### vs `@prisma/adapter-libsql`
 
@@ -388,10 +601,23 @@ db.run("COMMIT");
 
 **Decision**: Set `usePhantomQuery: true` in transaction options
 
+**What it means**:
+- When `true`: Prisma sends "phantom queries" to verify transaction state, and expects the adapter to call BEGIN/COMMIT/ROLLBACK
+- When `false`: Prisma Engine sends explicit COMMIT/ROLLBACK queries, and the adapter just manages connection state
+
 **Reasoning**:
-- Required for Prisma's transaction protocol with manual BEGIN/COMMIT
-- Changing to `false` caused "Transaction already closed" errors
-- Official better-sqlite3 adapter also uses manual transactions (though with different mechanism)
+- Matches `@prisma/adapter-libsql` pattern (official adapter)
+- Simpler implementation with manual transaction lifecycle
+- **CRITICAL**: This setting is tightly coupled with transaction methods - both must be changed together
+- Changing to `false` would require complete rewrite of transaction lifecycle
+
+**Trade-offs**:
+- ✅ Adapter has full control over transaction lifecycle
+- ✅ Simple BEGIN/COMMIT/ROLLBACK implementation
+- ⚠️ Slightly more query overhead (phantom queries for state verification)
+- ⚠️ Different pattern than better-sqlite3 (which uses `false`)
+
+**Note**: Both `true` and `false` are valid designs used by official adapters
 
 ### 3. Why PRAGMA for Column Types?
 
@@ -468,9 +694,10 @@ prisma/
 ### Test Structure
 
 **Shared Test Suite** (`tests/common/test-suite.ts`):
-- 51 comprehensive tests
+- 113 comprehensive tests (as of v0.1.1)
 - Run against both libsql and bunsqlite adapters
 - Ensures 100% compatibility
+- Includes regression tests for v0.1.1 critical fixes
 
 **Test Categories**:
 
@@ -537,9 +764,15 @@ bun test --verbose
 ### Test Results
 
 ```
-✅ BunSQLite: 51/51 tests passing
-✅ LibSQL:    51/51 tests passing
+✅ BunSQLite: 113/113 tests passing (v0.1.1)
+✅ LibSQL:    110/113 tests passing (3 adapter-specific tests skipped)
 ```
+
+**v0.1.1 Additions:**
+- Regression test for duplicate column preservation
+- Error mapping tests for errno-only errors
+- BigInt max value test (bunsqlite-only)
+- Concurrent transaction test
 
 ## Performance Considerations
 
@@ -556,19 +789,31 @@ bun test --verbose
 
 ## Future Improvements
 
-### Potential Enhancements
+### Planned Enhancements (See `.dev/BACKLOG.md`)
 
-1. **Connection Pooling**: Not needed for SQLite, but could add for compatibility
-2. **Streaming Results**: For very large result sets
-3. **Custom PRAGMA Settings**: Allow users to configure more PRAGMAs
-4. **Performance Metrics**: Built-in query timing
-5. **Shadow Database Support**: For migrations (like better-sqlite3 adapter)
+**v0.2.0 - Code Quality & Features:**
+1. **Debug Logging**: Add `Debug` from `@prisma/driver-adapter-utils` for troubleshooting
+2. **Shadow Database Support**: Implement `SqlMigrationAwareDriverAdapterFactory` for migration testing
+3. **Dead Code Removal**: Remove unused `getColumnTypesForQuery()` method
+4. **Statement Metadata Safety**: File Bun issue to make `columnNames`/`declaredTypes` official API
+5. **Modular Structure**: Refactor into separate files (adapter.ts, transaction.ts, conversion.ts, errors.ts)
+
+**v0.3.0 - Performance & Optimization:**
+1. **Performance Benchmarks**: Add comprehensive benchmarks vs libsql and better-sqlite3
+2. **usePhantomQuery: false**: Consider switching for fewer queries (requires transaction rewrite)
+3. **Schema Caching**: Cache PRAGMA results to reduce repeated schema queries
+
+**v1.0.0 - Production Hardening:**
+1. **Extensive Production Testing**: Used in 3+ projects for 3+ months
+2. **API Stability**: Lock API for semantic versioning
+3. **Comprehensive Documentation**: Migration guides, troubleshooting, performance tuning
 
 ### Known Limitations
 
 1. **SQLite Constraints**: Inherits all SQLite limitations (single writer, no network, etc.)
 2. **Decimal Precision**: Limited by SQLite's lack of native decimal type
 3. **Transaction Isolation**: Only SERIALIZABLE (SQLite limitation)
+4. **Undocumented Bun APIs**: Relies on `columnNames`/`declaredTypes` properties (not officially documented)
 
 ## Contributing
 

@@ -13,15 +13,17 @@ Default to using Bun instead of Node.js.
 
 This is a production-ready Prisma driver adapter for Bun's native SQLite API (`bun:sqlite`). The adapter provides zero-dependency SQLite support for Prisma ORM in Bun environments.
 
-**Status**: ✅ Complete - 51/51 tests passing
+**Status**: ✅ Production Ready - v0.1.1 - 113/113 tests passing
 
-## Architecture
+## Quick Links
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for comprehensive implementation details.
+- **[CHANGELOG.md](./CHANGELOG.md)** - Release notes and version history (what changed)
+- **[BACKLOG.md](./BACKLOG.md)** - Future roadmap and planned enhancements (what's next)
+- **[ARCHITECTURE.md](./ARCHITECTURE.md)** - Implementation details and design decisions (how it works)
 
 **Key Files**:
-- `src/bunsqlite-adapter.ts` - Main adapter implementation (611 lines)
-- `tests/common/test-suite.ts` - Shared test suite (51 tests)
+- `src/bunsqlite-adapter.ts` - Main adapter implementation (~680 lines)
+- `tests/common/test-suite.ts` - Shared test suite (113 tests)
 - `tests/bunsqlite-adapter.test.ts` - BunSQLite adapter tests
 - `tests/libsql-adapter.test.ts` - LibSQL adapter tests (baseline)
 
@@ -46,16 +48,17 @@ bun test tests/bunsqlite-adapter.test.ts
 bun test tests/libsql-adapter.test.ts
 ```
 
-**Test Coverage**:
+**Test Coverage** (113 tests total):
 - 12 CRUD operation tests
 - 6 relation tests (including cascade deletes)
 - 9 filtering & querying tests
 - 3 aggregation tests
-- 3 transaction tests
-- 4 raw query tests
-- 7 type coercion tests
-- 4 error handling tests
+- 3 transaction tests (including concurrent transaction test)
+- 4 raw query tests ($queryRaw, $executeRaw)
+- 7 type coercion tests (including BigInt max value)
+- 4 error handling tests (including errno-only error tests)
 - 6 edge case tests
+- Plus v0.1.1 regression tests for critical fixes
 
 ## Development Workflow
 
@@ -63,7 +66,7 @@ bun test tests/libsql-adapter.test.ts
 
 1. **Edit source code**: `src/bunsqlite-adapter.ts`
 2. **Run tests**: `bun test`
-3. **Verify both adapters pass**: Both bunsqlite and libsql should pass all 51 tests
+3. **Verify both adapters pass**: Both bunsqlite and libsql should pass all tests (113 for bunsqlite, 110 for libsql with 3 adapter-specific skips)
 
 ### Adding Features
 
@@ -110,11 +113,13 @@ SQLite errors are automatically mapped to Prisma error codes:
 
 ### Transaction Handling
 
-Uses manual `BEGIN`/`COMMIT`/`ROLLBACK` (not `db.transaction()`):
+Uses manual `BEGIN`/`COMMIT`/`ROLLBACK` with `usePhantomQuery: true`:
 
-- Matches official better-sqlite3 adapter pattern
-- Required for Prisma's transaction protocol
-- `usePhantomQuery: true` needed for manual transaction management
+- **Design choice**: Adapter controls transaction lifecycle (not Prisma Engine)
+- Matches `@prisma/adapter-libsql` pattern (official adapter)
+- Different from `@prisma/adapter-better-sqlite3` which uses `usePhantomQuery: false`
+- Both patterns are valid - see [ARCHITECTURE.md](./ARCHITECTURE.md#6-transaction-management) for details
+- Uses custom AsyncMutex (34 lines) to serialize transactions (SQLite single-writer limitation)
 
 ### Column Type Detection
 
@@ -196,14 +201,28 @@ bun -e 'import { Database } from "bun:sqlite"; const db = new Database("./prisma
   - `db.prepare()` - Prepared statements
   - `db.run()` - Execute SQL
   - `db.exec()` - Execute script
-  - `stmt.all()` - Get all rows
+  - `stmt.values()` - Get all rows as arrays (v0.1.1+, prevents duplicate column data loss)
   - `stmt.run()` - Execute statement
+  - `(stmt as any).columnNames` - Undocumented API for column names
+  - `(stmt as any).declaredTypes` - Undocumented API for column types
 
 ## Common Issues
 
+### Data corruption on JOINs (FIXED in v0.1.1)
+
+**Symptom**: Duplicate column names in query results (e.g., `User.id` and `Profile.id`) return same value
+**Cause**: Was using `stmt.all()` which returns objects, losing duplicate keys
+**Fix**: ✅ Changed to `stmt.values()` which returns arrays, preserving all columns
+
+### Error not wrapped as Prisma error (FIXED in v0.1.1)
+
+**Symptom**: SQLite errors (missing table, syntax errors) not showing as proper Prisma errors
+**Cause**: Bun returns `{ errno: 1, code: undefined }` for most errors, adapter only checked `.code`
+**Fix**: ✅ Added complete `SQLITE_ERROR_MAP` mapping errno → code
+
 ### "Transaction already closed"
 
-**Cause**: `usePhantomQuery: false` incompatible with manual transactions
+**Cause**: `usePhantomQuery: false` incompatible with manual BEGIN/COMMIT/ROLLBACK
 **Fix**: Keep `usePhantomQuery: true` (already set correctly)
 
 ### Foreign key constraints not working
@@ -211,10 +230,11 @@ bun -e 'import { Database } from "bun:sqlite"; const db = new Database("./prisma
 **Cause**: `PRAGMA foreign_keys = ON` not set
 **Fix**: Already set in factory's `connect()` method
 
-### BLOB data not converting
+### Large integer precision loss (FIXED in v0.1.1)
 
-**Cause**: Column type not detected as Bytes
-**Fix**: Ensure PRAGMA query detects table correctly (check table name extraction regex)
+**Symptom**: Values > 2^53-1 lose precision
+**Cause**: JavaScript numbers can't represent 64-bit integers safely
+**Fix**: ✅ `safeIntegers: true` by default (opt-out with `safeIntegers: false` if needed)
 
 ### Boolean values wrong
 
@@ -225,4 +245,6 @@ bun -e 'import { Database } from "bun:sqlite"; const db = new Database("./prisma
 
 - **User documentation**: [README.md](./README.md)
 - **Implementation details**: [ARCHITECTURE.md](./ARCHITECTURE.md)
+- **Release notes**: [CHANGELOG.md](./CHANGELOG.md) - What changed in each version
+- **Future roadmap**: [BACKLOG.md](./BACKLOG.md) - Planned features and improvements
 - **Repository**: https://github.com/mmvsk/prisma-adapter-bunsqlite
