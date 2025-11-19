@@ -1,5 +1,12 @@
 import { test, expect, describe, beforeEach } from "bun:test";
-import type { PrismaClient } from "@/prisma-generated/client";
+import { PrismaClient } from "@/prisma-generated/client";
+import { PrismaBunSQLite } from "../src/bunsqlite-adapter";
+
+// Setup adapter and Prisma client
+const url = process.env.DATABASE_URL_FROM_ROOT!;
+const adapter = new PrismaBunSQLite({ url });
+const prisma = new PrismaClient({ adapter });
+const adapterName = "bunsqlite";
 
 async function cleanupDatabase(prisma: PrismaClient) {
 	// Delete in order to respect foreign key constraints
@@ -14,13 +21,9 @@ async function cleanupDatabase(prisma: PrismaClient) {
 	await prisma.settings.deleteMany();
 }
 
-export function RunTestSuite(prisma: PrismaClient, options?: { adapterName?: string }) {
-	const adapterName = options?.adapterName || "unknown";
-
-	beforeEach(async () => {
-		await cleanupDatabase(prisma);
-	});
-
+beforeEach(async () => {
+	await cleanupDatabase(prisma);
+});
 	describe("CRUD Operations", () => {
 		test("create user", async () => {
 			const user = await prisma.user.create({
@@ -251,7 +254,7 @@ export function RunTestSuite(prisma: PrismaClient, options?: { adapterName?: str
 			});
 
 			expect(user.posts).toHaveLength(2);
-			expect(user.posts[0].title).toBe("First Post");
+			expect(user.posts[0]!.title).toBe("First Post");
 		});
 
 		test("create with nested relation - many-to-many", async () => {
@@ -349,7 +352,7 @@ export function RunTestSuite(prisma: PrismaClient, options?: { adapterName?: str
 			});
 
 			expect(users).toHaveLength(1);
-			expect(users[0].name).toBe("Alice");
+			expect(users[0]!.name).toBe("Alice");
 		});
 
 		test("where gt/lt/gte/lte", async () => {
@@ -445,7 +448,7 @@ export function RunTestSuite(prisma: PrismaClient, options?: { adapterName?: str
 			expect(orResult).toHaveLength(2);
 			expect(andResult).toHaveLength(1);
 			expect(notResult).toHaveLength(1);
-			expect(notResult[0].name).toBe("Bob");
+			expect(notResult[0]!.name).toBe("Bob");
 		});
 
 		test("orderBy asc/desc", async () => {
@@ -465,10 +468,10 @@ export function RunTestSuite(prisma: PrismaClient, options?: { adapterName?: str
 				orderBy: { name: "desc" },
 			});
 
-			expect(asc[0].name).toBe("Alice");
-			expect(asc[2].name).toBe("Charlie");
-			expect(desc[0].name).toBe("Charlie");
-			expect(desc[2].name).toBe("Alice");
+			expect(asc[0]!.name).toBe("Alice");
+			expect(asc[2]!.name).toBe("Charlie");
+			expect(desc[0]!.name).toBe("Charlie");
+			expect(desc[2]!.name).toBe("Alice");
 		});
 
 		test("skip and take (pagination)", async () => {
@@ -492,8 +495,8 @@ export function RunTestSuite(prisma: PrismaClient, options?: { adapterName?: str
 
 			expect(page1).toHaveLength(3);
 			expect(page2).toHaveLength(3);
-			expect(page1[0].name).toBe("User 0");
-			expect(page2[0].name).toBe("User 3");
+			expect(page1[0]!.name).toBe("User 0");
+			expect(page2[0]!.name).toBe("User 3");
 		});
 
 		test("distinct", async () => {
@@ -682,7 +685,7 @@ export function RunTestSuite(prisma: PrismaClient, options?: { adapterName?: str
 			`;
 
 			expect(users).toHaveLength(2);
-			expect(users[0].name).toMatch(/^Raw/);
+			expect(users[0]!.name).toMatch(/^Raw/);
 		});
 
 		test("$executeRaw - INSERT", async () => {
@@ -903,7 +906,7 @@ export function RunTestSuite(prisma: PrismaClient, options?: { adapterName?: str
 			expect(profile.avatar).toBeTruthy();
 			expect(profile.avatar instanceof Buffer || profile.avatar instanceof Uint8Array).toBe(true);
 			// Compare the actual bytes
-			const receivedBytes = profile.avatar instanceof Buffer ? profile.avatar : Buffer.from(profile.avatar);
+			const receivedBytes = profile.avatar instanceof Buffer ? profile.avatar : Buffer.from(profile.avatar!);
 			expect(receivedBytes.equals(imageData)).toBe(true);
 		});
 
@@ -1105,4 +1108,3 @@ export function RunTestSuite(prisma: PrismaClient, options?: { adapterName?: str
 			expect(user.balance).toBe(-50.5);
 		});
 	});
-}

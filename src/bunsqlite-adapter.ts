@@ -6,6 +6,7 @@ import {
 	DriverAdapterError,
 	type IsolationLevel,
 	type SqlDriverAdapter,
+	type SqlMigrationAwareDriverAdapterFactory,
 	type SqlQuery,
 	type SqlResultSet,
 	type Transaction,
@@ -15,9 +16,14 @@ import {
 const ADAPTER_NAME = "@prisma/adapter-bunsqlite";
 
 /**
- * Adapter options for BunSQLite
+ * Runtime options for BunSQLite adapter
+ * These options control how data is converted between SQLite and Prisma formats
  */
-export type PrismaBunSqlite3Options = {
+export type PrismaBunSQLiteOptions = {
+	/**
+	 * How to format DateTime values in the database
+	 * @default "iso8601"
+	 */
 	timestampFormat?: "iso8601" | "unixepoch-ms";
 	/**
 	 * Enable safe 64-bit integer handling.
@@ -206,7 +212,7 @@ function mapRow(row: unknown[], columnTypes: ColumnType[]): unknown[] {
  * Maps arguments from Prisma format to SQLite format
  * Matches the official Prisma better-sqlite3 adapter argument handling
  */
-function mapArg(arg: unknown, argType: ArgType, options?: PrismaBunSqlite3Options): unknown {
+function mapArg(arg: unknown, argType: ArgType, options?: PrismaBunSQLiteOptions): unknown {
 	if (arg === null) {
 		return null;
 	}
@@ -406,7 +412,7 @@ function convertDriverError(error: any): any {
 class BunSQLiteQueryable {
 	constructor(
 		protected db: Database,
-		protected adapterOptions?: PrismaBunSqlite3Options,
+		protected adapterOptions?: PrismaBunSQLiteOptions,
 	) {}
 
 	readonly provider = "sqlite" as const;
@@ -553,7 +559,7 @@ class BunSQLiteTransaction extends BunSQLiteQueryable implements Transaction {
 	constructor(
 		db: Database,
 		readonly options: TransactionOptions,
-		adapterOptions: PrismaBunSqlite3Options | undefined,
+		adapterOptions: PrismaBunSQLiteOptions | undefined,
 		private onComplete: () => void,
 	) {
 		super(db, adapterOptions);
@@ -620,7 +626,7 @@ class AsyncMutex {
 export class BunSQLiteAdapter extends BunSQLiteQueryable implements SqlDriverAdapter {
 	private transactionMutex = new AsyncMutex();
 
-	constructor(db: Database, adapterOptions?: PrismaBunSqlite3Options) {
+	constructor(db: Database, adapterOptions?: PrismaBunSQLiteOptions) {
 		super(db, adapterOptions);
 	}
 
@@ -707,12 +713,20 @@ export type PrismaBunSQLiteConfig = {
 	 * Examples: "file:./dev.db", "file:/absolute/path/db.sqlite", ":memory:"
 	 */
 	url: string;
-} & PrismaBunSqlite3Options;
+	/**
+	 * Shadow database URL for migrations (optional)
+	 * Used by Prisma Migrate for migration testing and diffing.
+	 * Defaults to ":memory:" if not specified.
+	 * Examples: "file:./shadow.db", ":memory:"
+	 */
+	shadowDatabaseUrl?: string;
+} & PrismaBunSQLiteOptions;
 
 /**
  * BunSQLite adapter factory for Prisma Client
+ * Implements SqlMigrationAwareDriverAdapterFactory for shadow database support
  */
-export class PrismaBunSQLite {
+export class PrismaBunSQLite implements SqlMigrationAwareDriverAdapterFactory {
 	readonly provider = "sqlite" as const;
 	readonly adapterName = ADAPTER_NAME;
 
@@ -722,9 +736,12 @@ export class PrismaBunSQLite {
 		this.config = config;
 	}
 
-	async connect(): Promise<SqlDriverAdapter> {
+	/**
+	 * Create database connection with standard configuration
+	 */
+	private createConnection(url: string): Database {
 		// Parse URL - support both "file:./path" and "./path" formats
-		const dbPath = this.config.url.replace(/^file:/, "");
+		const dbPath = url.replace(/^file:/, "");
 
 		// Enable safe integers by default to prevent precision loss for BIGINT values
 		const safeIntegers = this.config.safeIntegers !== false;
@@ -737,8 +754,31 @@ export class PrismaBunSQLite {
 		db.run("PRAGMA busy_timeout = 5000");
 
 		// Enable WAL mode for better concurrency and performance
-		db.run("PRAGMA journal_mode = WAL");
+		// Note: WAL mode is not available for :memory: databases
+		if (dbPath !== ":memory:") {
+			db.run("PRAGMA journal_mode = WAL");
+		}
 
+		return db;
+	}
+
+	/**
+	 * Connect to the main database
+	 */
+	async connect(): Promise<SqlDriverAdapter> {
+		const db = this.createConnection(this.config.url);
+		return new BunSQLiteAdapter(db, this.config);
+	}
+
+	/**
+	 * Connect to the shadow database for migrations
+	 * Shadow database is used by Prisma Migrate for migration testing and diffing.
+	 * Defaults to :memory: if shadowDatabaseUrl is not specified.
+	 */
+	async connectToShadowDb(): Promise<SqlDriverAdapter> {
+		// Use :memory: by default for shadow database (faster and isolated)
+		const shadowUrl = this.config.shadowDatabaseUrl ?? ":memory:";
+		const db = this.createConnection(shadowUrl);
 		return new BunSQLiteAdapter(db, this.config);
 	}
 }

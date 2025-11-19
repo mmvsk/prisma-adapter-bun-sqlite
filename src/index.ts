@@ -4,5 +4,16 @@ export {
 	BunSQLiteAdapter,
 	createBunSQLiteAdapter,
 	type PrismaBunSQLiteConfig,
-	type PrismaBunSqlite3Options,
+	type PrismaBunSQLiteOptions,
 } from "./bunsqlite-adapter";
+
+// Migration utilities (v0.2.0+)
+export {
+	runMigrations,
+	loadMigrationsFromDir,
+	getAppliedMigrations,
+	getPendingMigrations,
+	createTestDatabase,
+	type Migration,
+	type MigrationOptions,
+} from "./migrations";

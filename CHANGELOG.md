@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.0] - 2024-11-20
+
+### Added
+
+- **Shadow Database Support** for Prisma Migrate 🎉
+  - Implemented `SqlMigrationAwareDriverAdapterFactory` interface
+  - Added `connectToShadowDb()` method for migration testing and diffing
+  - Added `shadowDatabaseUrl` configuration option (defaults to `:memory:`)
+  - Enables `prisma migrate dev` with shadow database
+  - Compatible with `prisma.config.ts` migration engine
+  - Added 9 comprehensive shadow database tests
+
+- **Programmatic Migration Utilities** for TypeScript-based migrations
+  - `runMigrations()` - Apply migrations programmatically
+  - `loadMigrationsFromDir()` - Load migration files from directory
+  - `getAppliedMigrations()` - Query which migrations have been applied
+  - `getPendingMigrations()` - Check which migrations need to be applied
+  - `createTestDatabase()` - Create :memory: database with migrations (perfect for testing!)
+  - Migration tracking compatible with Prisma's `_prisma_migrations` table
+  - Added 11 comprehensive migration utility tests
+
+### Changed
+
+- Factory class now implements `SqlMigrationAwareDriverAdapterFactory`
+- Refactored database connection logic into `createConnection()` private method
+- WAL mode now skipped for `:memory:` databases (not supported by SQLite)
+
+### Documentation
+
+- Added comprehensive migration examples in `examples/` directory
+- Updated exports to include migration utilities
+- Shadow database support documented in ARCHITECTURE.md
+
+### Testing
+
+- **133 total tests** (up from 113)
+- 9 new shadow database tests
+- 11 new migration utility tests
+- All tests passing ✅
+
+---
+
 ## [0.1.1] - 2024-11-20
 
 ### Fixed

@@ -23,6 +23,8 @@ This adapter implements Prisma's `SqlDriverAdapter` interface for Bun's native `
 3. **Production Ready**: Handle all edge cases, errors, and type conversions
 4. **Performance**: Leverage Bun's native performance characteristics
 5. **Maintainability**: Follow official Prisma adapter patterns
+6. **Full Migration Support**: Shadow database + programmatic migrations (v0.2.0+)
+7. **Standalone Binaries**: Embed migrations for zero-dependency deployment (v0.2.0+)
 
 ## Architecture
 
@@ -132,7 +134,7 @@ import {
 The `mapArg()` function (lines 201-256) converts Prisma types to SQLite types:
 
 ```typescript
-function mapArg(arg: unknown, argType: ArgType, options?: PrismaBunSqlite3Options)
+function mapArg(arg: unknown, argType: ArgType, options?: PrismaBunSQLiteOptions)
 ```
 
 **Key Conversions:**
@@ -454,7 +456,7 @@ JavaScript numbers can't safely represent integers beyond `Number.MAX_SAFE_INTEG
 Enable `safeIntegers: true` by default:
 
 ```typescript
-export type PrismaBunSqlite3Options = {
+export type PrismaBunSQLiteOptions = {
   /**
    * Enable safe 64-bit integer handling.
    * When true, BIGINT columns return as BigInt instead of number,
@@ -509,6 +511,154 @@ const declaredTypes = (stmt as any).declaredTypes || [];
 - Document in code comments
 
 **Documented:** Added explanatory comments in v0.1.1 (see lines 382-387 in src/bunsqlite-adapter.ts)
+
+## New Features in v0.2.0
+
+### 1. Shadow Database Support
+
+**What it enables:**
+- Full `prisma migrate dev` compatibility
+- Migration testing and diffing
+- Works with `prisma.config.ts` and JS engine
+
+**Implementation:**
+
+The factory class now implements `SqlMigrationAwareDriverAdapterFactory`:
+
+```typescript
+export class PrismaBunSQLite implements SqlMigrationAwareDriverAdapterFactory {
+  async connectToShadowDb(): Promise<SqlDriverAdapter> {
+    // Defaults to :memory: for speed
+    const shadowUrl = this.config.shadowDatabaseUrl ?? ":memory:";
+    const db = this.createConnection(shadowUrl);
+    return new BunSQLiteAdapter(db, this.config);
+  }
+}
+```
+
+**Key features:**
+- Shadow DB defaults to `:memory:` for maximum speed
+- Inherits all config options (safeIntegers, timestampFormat)
+- Completely isolated from main database
+- WAL mode automatically disabled for :memory: databases
+
+**Test coverage:** 9 comprehensive tests ensuring shadow DB works correctly
+
+---
+
+### 2. Programmatic Migration Utilities
+
+**New module:** `src/migrations.ts` (372 lines)
+
+**What it enables:**
+- Run migrations from TypeScript code
+- Create :memory: databases with migrations (lightning fast tests!)
+- Embed migrations in standalone Bun binaries
+- Custom migration workflows
+
+**API Overview:**
+
+```typescript
+// Create test database with migrations
+const adapter = await createTestDatabase([
+  { name: "001_init", sql: "CREATE TABLE users (...);" }
+]);
+
+// Run migrations manually
+await runMigrations(adapter, migrations, {
+  logger: console.log,
+  skipApplied: true  // Default
+});
+
+// Load migrations from filesystem
+const migrations = await loadMigrationsFromDir("./prisma/migrations");
+
+// Query migration status
+const applied = await getAppliedMigrations(adapter);
+const pending = await getPendingMigrations(adapter, allMigrations);
+```
+
+**Migration Tracking:**
+
+Uses Prisma-compatible `_prisma_migrations` table:
+
+```sql
+CREATE TABLE _prisma_migrations (
+  id TEXT PRIMARY KEY,
+  checksum TEXT NOT NULL,
+  migration_name TEXT NOT NULL,
+  finished_at DATETIME,
+  started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  applied_steps_count INTEGER DEFAULT 0
+);
+```
+
+**Test coverage:** 11 comprehensive tests covering all migration utilities
+
+---
+
+### 3. Type System Improvements
+
+**Before (v0.1.x):**
+```typescript
+export type PrismaBunSqlite3Options = { ... }  // Inconsistent naming
+export type PrismaBunSQLiteConfig = { ... }
+```
+
+**After (v0.2.0):**
+```typescript
+export type PrismaBunSQLiteOptions = { ... }   // Consistent naming
+export type PrismaBunSQLiteConfig = {
+  url: string;
+  shadowDatabaseUrl?: string;  // New!
+} & PrismaBunSQLiteOptions;
+```
+
+**Changes:**
+- Renamed `PrismaBunSqlite3Options` → `PrismaBunSQLiteOptions` (consistent with class name)
+- Added `shadowDatabaseUrl` to config
+- Better JSDoc comments throughout
+- All TypeScript strict mode errors fixed
+
+---
+
+### 4. Test Structure Simplification
+
+**Before (v0.1.x):**
+- `tests/common/test-suite.ts` - Shared test suite
+- `tests/bunsqlite-adapter.test.ts` - Wrapper for bunsqlite
+- `tests/libsql-adapter.test.ts` - Wrapper for libsql (baseline)
+- Dependency on `@prisma/adapter-libsql`
+
+**After (v0.2.0):**
+- `tests/general.test.ts` - All core adapter tests (57 tests)
+- `tests/migrations.test.ts` - Migration utility tests (11 tests)
+- `tests/shadow-database.test.ts` - Shadow DB tests (9 tests)
+- **Zero external adapter dependencies**
+
+**Benefits:**
+- Simpler test structure
+- Faster CI (no libsql baseline needed)
+- Easier to maintain
+- Cleaner codebase
+
+---
+
+### 5. Examples and Documentation
+
+**New Examples:**
+- `examples/standalone-binary.ts` - Embedded migrations in Bun binary
+- `examples/bundle-with-migration-files.ts` - Bundle Prisma migrations at build time
+- `examples/test-with-memory-db-example.ts` - :memory: testing patterns
+- `examples/README.md` - Complete guide with deployment strategies
+
+**Updated Documentation:**
+- README.md - Added migration utilities section
+- CHANGELOG.md - Comprehensive v0.2.0 entry
+- BACKLOG.md - Marked shadow DB as completed
+- prisma.config.ts - Now uses JS engine with adapter
+
+---
 
 ## Comparison with Official Adapters
 
@@ -641,7 +791,7 @@ db.run("COMMIT");
 
 ### 5. Why Options Support?
 
-**Decision**: Add `PrismaBunSqlite3Options` with `timestampFormat`
+**Decision**: Add `PrismaBunSQLiteOptions` with `timestampFormat`
 
 **Reasoning**:
 - Matches official adapter API
@@ -655,26 +805,38 @@ db.run("COMMIT");
 
 ```
 src/
-└── bunsqlite-adapter.ts    # Main adapter implementation (611 lines)
-    ├── Types (lines 1-22)
-    ├── Type Mapping (lines 24-92)
-    ├── Row Conversion (lines 129-187)
-    ├── Argument Mapping (lines 197-256)
-    ├── Error Conversion (lines 262-349)
-    ├── BunSQLiteQueryable (lines 354-467)
-    ├── BunSQLiteTransaction (lines 473-497)
-    ├── BunSQLiteAdapter (lines 505-583)
-    └── PrismaBunSQLite Factory (lines 588-611)
+├── bunsqlite-adapter.ts    # Main adapter implementation
+│   ├── Types & Interfaces
+│   ├── Type Mapping
+│   ├── Row Conversion
+│   ├── Argument Mapping
+│   ├── Error Conversion
+│   ├── BunSQLiteQueryable (Base)
+│   ├── BunSQLiteTransaction
+│   ├── BunSQLiteAdapter
+│   └── PrismaBunSQLite Factory
+├── migrations.ts           # Migration utilities (v0.2.0+)
+│   ├── runMigrations()
+│   ├── createTestDatabase()
+│   ├── loadMigrationsFromDir()
+│   ├── getAppliedMigrations()
+│   └── getPendingMigrations()
+└── index.ts                # Public exports
 
 tests/
-├── common/
-│   └── test-suite.ts       # Shared test suite (51 tests)
-├── bunsqlite-adapter.test.ts  # Runs tests with bun:sqlite
-└── libsql-adapter.test.ts     # Runs tests with libsql (baseline)
+├── general.test.ts         # Core adapter tests (57 tests)
+├── migrations.test.ts      # Migration utilities tests (11 tests)
+└── shadow-database.test.ts # Shadow DB tests (9 tests)
 
 prisma/
 ├── schema.prisma           # Test schema
 └── generated/              # Generated Prisma Client
+
+examples/                   # v0.2.0+ examples
+├── standalone-binary.ts
+├── bundle-with-migration-files.ts
+├── test-with-memory-db-example.ts
+└── README.md
 ```
 
 ### Key Functions
@@ -691,15 +853,43 @@ prisma/
 
 ## Testing Strategy
 
-### Test Structure
+### Test Structure (v0.2.0+)
 
-**Shared Test Suite** (`tests/common/test-suite.ts`):
-- 113 comprehensive tests (as of v0.1.1)
-- Run against both libsql and bunsqlite adapters
-- Ensures 100% compatibility
-- Includes regression tests for v0.1.1 critical fixes
+**Test Suites:**
 
-**Test Categories**:
+1. **`tests/general.test.ts`** - Core adapter functionality (57 tests)
+   - CRUD operations (12 tests)
+   - Relations (6 tests)
+   - Filtering & querying (9 tests)
+   - Aggregations (3 tests)
+   - Transactions (3 tests)
+   - Raw queries (4 tests)
+   - Type coercion (7 tests)
+   - Error handling (4 tests)
+   - Edge cases (6 tests)
+   - Includes regression tests for v0.1.1 critical fixes
+
+2. **`tests/migrations.test.ts`** - Migration utilities (11 tests)
+   - runMigrations applies migrations
+   - runMigrations skips already applied
+   - runMigrations tracks in _prisma_migrations
+   - getAppliedMigrations returns list
+   - getPendingMigrations returns unapplied
+   - createTestDatabase creates :memory: with migrations
+   - Complex SQL with comments
+   - Idempotent migrations
+   - Foreign key preservation
+
+3. **`tests/shadow-database.test.ts`** - Shadow DB (9 tests)
+   - Creates separate adapter instances
+   - Defaults to :memory:
+   - Supports custom URL
+   - Isolated from main database
+   - executeScript support
+   - Multiple usage
+   - Config inheritance (safeIntegers, timestampFormat)
+
+**Test Categories:**
 
 1. **CRUD Operations** (12 tests)
    - create, findUnique, findMany, findFirst
@@ -748,14 +938,17 @@ prisma/
 ### Running Tests
 
 ```bash
-# All tests (both adapters)
+# All tests (77 tests total)
 bun test
 
-# BunSQLite only
-bun test tests/bunsqlite-adapter.test.ts
+# Core adapter only
+bun test tests/general.test.ts
 
-# LibSQL only (baseline)
-bun test tests/libsql-adapter.test.ts
+# Migration utilities only
+bun test tests/migrations.test.ts
+
+# Shadow database only
+bun test tests/shadow-database.test.ts
 
 # Verbose output
 bun test --verbose
@@ -764,15 +957,17 @@ bun test --verbose
 ### Test Results
 
 ```
-✅ BunSQLite: 113/113 tests passing (v0.1.1)
-✅ LibSQL:    110/113 tests passing (3 adapter-specific tests skipped)
+✅ General Tests:         57/57 tests passing (v0.2.0)
+✅ Migration Tests:       11/11 tests passing (v0.2.0)
+✅ Shadow Database Tests:  9/9 tests passing (v0.2.0)
+──────────────────────────────────────────────────────
+✅ Total:                 77/77 tests passing
 ```
 
-**v0.1.1 Additions:**
-- Regression test for duplicate column preservation
-- Error mapping tests for errno-only errors
-- BigInt max value test (bunsqlite-only)
-- Concurrent transaction test
+**Test Evolution:**
+- v0.1.0: 110 tests
+- v0.1.1: 113 tests (added regression tests)
+- v0.2.0: 77 tests (consolidated + new features, removed baseline duplication)
 
 ## Performance Considerations
 
@@ -789,14 +984,17 @@ bun test --verbose
 
 ## Future Improvements
 
-### Planned Enhancements (See `.dev/BACKLOG.md`)
+### Planned Enhancements (See `BACKLOG.md`)
 
-**v0.2.0 - Code Quality & Features:**
+**High Priority (Next Release):**
 1. **Debug Logging**: Add `Debug` from `@prisma/driver-adapter-utils` for troubleshooting
-2. **Shadow Database Support**: Implement `SqlMigrationAwareDriverAdapterFactory` for migration testing
-3. **Dead Code Removal**: Remove unused `getColumnTypesForQuery()` method
+2. **Dead Code Removal**: Remove unused `getColumnTypesForQuery()` method
+3. **Base64 BLOB Investigation**: Document or remove base64 BLOB handling code
 4. **Statement Metadata Safety**: File Bun issue to make `columnNames`/`declaredTypes` official API
-5. **Modular Structure**: Refactor into separate files (adapter.ts, transaction.ts, conversion.ts, errors.ts)
+
+**Medium Priority:**
+1. **Modular Structure**: Refactor into separate files (adapter.ts, transaction.ts, conversion.ts, errors.ts)
+2. **Comprehensive JSDoc**: Add JSDoc comments to all public APIs
 
 **v0.3.0 - Performance & Optimization:**
 1. **Performance Benchmarks**: Add comprehensive benchmarks vs libsql and better-sqlite3

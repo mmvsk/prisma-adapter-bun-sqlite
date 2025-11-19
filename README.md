@@ -3,17 +3,27 @@
 A native Prisma driver adapter for [Bun's built-in SQLite](https://bun.sh/docs/api/sqlite) (`bun:sqlite`). Zero Node.js dependencies, optimized for Bun runtime.
 
 [![npm version](https://img.shields.io/npm/v/prisma-adapter-bunsqlite)](https://www.npmjs.com/package/prisma-adapter-bunsqlite)
-[![Tests](https://img.shields.io/badge/tests-113%2F113%20passing-success)](./tests)
+[![Tests](https://img.shields.io/badge/tests-77%2F77%20passing-success)](./tests)
 [![Bun](https://img.shields.io/badge/bun-v1.3.2+-black)](https://bun.sh)
 [![Prisma](https://img.shields.io/badge/prisma-6.19.0+-blue)](https://prisma.io)
+
+## ✨ What's New in v0.2.0
+
+- **🔄 Shadow Database Support** - Full `prisma migrate dev` compatibility with shadow database
+- **⚡ Programmatic Migrations** - Run migrations from TypeScript for :memory: testing
+- **🧪 Lightning Fast Tests** - Create fresh :memory: databases with migrations in milliseconds
+- **📦 Standalone Binaries** - Embed migrations in Bun binaries with zero runtime dependencies
+
+[See full changelog →](./CHANGELOG.md)
 
 ## Why This Adapter?
 
 - **🚀 Zero Dependencies**: Uses Bun's native `bun:sqlite` - no Node.js packages required
 - **⚡ Performance**: Native Bun API is faster than Node.js alternatives
 - **🎯 Simple Deployment**: Single binary deployment with Bun - no node_modules needed
-- **✅ Production Ready**: Passes 113/113 comprehensive tests covering all Prisma operations
+- **✅ Production Ready**: Passes 77/77 comprehensive tests covering all Prisma operations
 - **📦 Fully Compatible**: Drop-in replacement for `@prisma/adapter-libsql` or `@prisma/adapter-better-sqlite3`
+- **🔄 Full Migration Support**: Shadow database + programmatic migrations (v0.2.0+)
 
 ## Installation
 
@@ -100,6 +110,7 @@ const adapter = new PrismaBunSQLite(config);
 ```typescript
 type PrismaBunSQLiteConfig = {
   url: string;                                    // Required: Database URL
+  shadowDatabaseUrl?: string;                     // Optional: Shadow DB for migrations (default: ":memory:")
   timestampFormat?: "iso8601" | "unixepoch-ms";  // Optional: Default "iso8601"
   safeIntegers?: boolean;                         // Optional: Default true
                                                    // Enable safe 64-bit integer handling
@@ -115,6 +126,12 @@ const adapter = new PrismaBunSQLite({ url: "file:./dev.db" });
 
 // In-memory database
 const adapter = new PrismaBunSQLite({ url: ":memory:" });
+
+// With shadow database for migrations (v0.2.0+)
+const adapter = new PrismaBunSQLite({
+  url: "file:./dev.db",
+  shadowDatabaseUrl: ":memory:"  // Fast shadow DB for migration testing
+});
 
 // With custom timestamp format
 const adapter = new PrismaBunSQLite({
@@ -141,6 +158,43 @@ import { BunSQLiteAdapter } from "prisma-adapter-bunsqlite";
 const db = new Database("./dev.db");
 const adapter = new BunSQLiteAdapter(db, options);
 ```
+
+### Migration Utilities (v0.2.0+)
+
+Programmatic migration control for TypeScript-based workflows.
+
+```typescript
+import {
+  runMigrations,
+  createTestDatabase,
+  loadMigrationsFromDir,
+  getAppliedMigrations,
+  getPendingMigrations,
+} from "prisma-adapter-bunsqlite";
+```
+
+**Quick Examples:**
+
+```typescript
+// Create :memory: database with migrations (perfect for tests!)
+const adapter = await createTestDatabase([
+  { name: "001_init", sql: "CREATE TABLE users (id INTEGER PRIMARY KEY);" }
+]);
+const prisma = new PrismaClient({ adapter });
+
+// Load and run migrations from filesystem
+const migrations = await loadMigrationsFromDir("./prisma/migrations");
+await runMigrations(adapter, migrations);
+
+// Check migration status
+const applied = await getAppliedMigrations(adapter);
+const pending = await getPendingMigrations(adapter, allMigrations);
+```
+
+**See [examples/](./examples/) for:**
+- Standalone binaries with embedded migrations
+- :memory: database testing patterns
+- Custom migration workflows
 
 ## Features
 
@@ -301,18 +355,22 @@ const prisma = new PrismaClient({ adapter });
 Run the comprehensive test suite:
 
 ```bash
-# Run all tests (113 tests)
+# Run all tests (77 tests: 57 general + 11 migrations + 9 shadow DB)
 bun test
 
-# Run specific adapter tests
-bun test tests/bunsqlite-adapter.test.ts
+# Run specific test suites
+bun test tests/general.test.ts           # Core adapter tests
+bun test tests/migrations.test.ts        # Migration utility tests
+bun test tests/shadow-database.test.ts   # Shadow DB tests
 
 # Run with verbose output
 bun test --verbose
 ```
 
 Test coverage includes:
-- 12 CRUD operation tests
+- 57 **Core Adapter Tests** (CRUD, relations, transactions, types, errors)
+- 11 **Migration Utility Tests** (v0.2.0+)
+- 9 **Shadow Database Tests** (v0.2.0+)
 - 6 relation tests (including cascade deletes)
 - 9 filtering & querying tests
 - 3 aggregation tests
