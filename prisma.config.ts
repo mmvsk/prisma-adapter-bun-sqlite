@@ -1,33 +1,23 @@
 /**
- * Prisma Configuration with Bun SQLite Adapter (v0.2.0+)
+ * Prisma Configuration (Prisma 7+)
  *
- * This config enables:
- * - JS engine with driver adapters
- * - Shadow database support for migrations
- * - Full `prisma migrate dev` compatibility
+ * In Prisma 7, the config file is for CLI tools (migrate, db pull).
+ * The adapter is passed directly to PrismaClient constructor in code.
+ *
+ * For migrations with driver adapters, run:
+ *   DATABASE_URL="file:./prisma/dev.db" bunx prisma migrate dev
+ *
+ * Or set up adapter in a Node.js-compatible way for migrations.
  */
 
-import { defineConfig, env } from "prisma/config";
-import { PrismaBunSQLite } from "./src/bunsqlite-adapter";
+import { defineConfig } from "prisma/config";
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
     path: "prisma/migrations",
   },
-
-  // Use JS engine with driver adapters (v0.2.0+)
-  engine: "js",
-  experimental: {
-    adapter: true,
-  },
-
-  // Adapter configuration
-  adapter: async () => {
-    return new PrismaBunSQLite({
-      url: env("DATABASE_URL_FROM_PRISMA"),
-      // Shadow database for migrations (defaults to :memory: for speed)
-      shadowDatabaseUrl: ":memory:",
-    });
-  },
+  datasource: {
+    url: process.env.DATABASE_URL!,
+  }
 });

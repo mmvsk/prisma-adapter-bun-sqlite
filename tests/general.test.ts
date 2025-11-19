@@ -3,7 +3,7 @@ import { PrismaClient } from "@/prisma-generated/client";
 import { PrismaBunSQLite } from "../src/bunsqlite-adapter";
 
 // Setup adapter and Prisma client
-const url = process.env.DATABASE_URL_FROM_ROOT!;
+const url = process.env.DATABASE_URL!;
 const adapter = new PrismaBunSQLite({ url });
 const prisma = new PrismaClient({ adapter });
 const adapterName = "bunsqlite";

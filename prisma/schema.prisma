@@ -7,7 +7,8 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL_FROM_PRISMA")
+  // Note: In Prisma 7+, the URL is passed via adapter in PrismaClient constructor
+  // See: https://pris.ly/d/prisma7-client-config
 }
 
 // Basic user model with various data types

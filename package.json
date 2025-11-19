@@ -60,7 +60,7 @@
     "@prisma/driver-adapter-utils": "^7.0.0"
   },
   "devDependencies": {
-    "@prisma/client": "^6.19.0",
+    "@prisma/client": "^7.0.0",
     "@types/bun": "^1.3.2",
     "prisma": "^7.0.0",
     "typescript": "^6.0.0-dev.20251119"

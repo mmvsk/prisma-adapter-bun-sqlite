@@ -1,5 +1,6 @@
 {
 	"include": [
+		"prisma.config.ts",
 		"prisma/generated",
 		"tests",
 		"src"
