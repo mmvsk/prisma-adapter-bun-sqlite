@@ -1,0 +1,25 @@
+# Source files (compiled version in dist/)
+src/
+tsconfig.json
+tsconfig.build.json
+
+# Tests
+tests/
+*.test.ts
+
+# Build artifacts
+node_modules/
+
+# Prisma
+prisma/
+.env
+
+# Development
+.git/
+.gitignore
+CLAUDE.md
+ARCHITECTURE.md
+
+# Misc
+*.log
+.DS_Store

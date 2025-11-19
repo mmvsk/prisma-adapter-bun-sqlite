@@ -1,0 +1,121 @@
+generator client {
+  provider   = "prisma-client"
+  engineType = "client"
+  runtime    = "bun"
+  output     = "./generated"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL_FROM_PRISMA")
+}
+
+// Basic user model with various data types
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String?
+  age       Int?
+  balance   Float    @default(0.0)
+  isActive  Boolean  @default(true)
+  metadata  String?  // JSON stored as TEXT in SQLite
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  posts    Post[]
+  profile  Profile?
+  comments Comment[]
+}
+
+// One-to-one relationship
+model Profile {
+  id        Int     @id @default(autoincrement())
+  bio       String
+  avatar    Bytes?  // BLOB in SQLite
+  website   String?
+  userId    Int     @unique
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+// One-to-many relationship
+model Post {
+  id          Int       @id @default(autoincrement())
+  title       String
+  content     String?
+  published   Boolean   @default(false)
+  viewCount   Int       @default(0)
+  rating      Float?
+  publishedAt DateTime?
+  authorId    Int
+  author      User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  tags     Tag[]
+  comments Comment[]
+
+  @@index([authorId])
+  @@index([published])
+  @@index([publishedAt])
+}
+
+// Many-to-many relationship
+model Tag {
+  id    Int    @id @default(autoincrement())
+  name  String @unique
+  posts Post[]
+
+  createdAt DateTime @default(now())
+}
+
+// Model with composite unique constraint
+model Comment {
+  id        Int      @id @default(autoincrement())
+  content   String
+  postId    Int
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId  Int
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([postId])
+  @@index([authorId])
+}
+
+// Model to test BigInt handling (stored as TEXT in SQLite)
+model Analytics {
+  id          Int      @id @default(autoincrement())
+  totalViews  BigInt   @default(0)
+  totalLikes  BigInt   @default(0)
+  entityType  String
+  entityId    Int
+  timestamp   DateTime @default(now())
+
+  @@unique([entityType, entityId])
+}
+
+// Model to test Decimal handling (stored as TEXT in SQLite)
+model Product {
+  id          Int      @id @default(autoincrement())
+  name        String
+  price       Decimal
+  discount    Decimal?
+  description String?
+  inStock     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@index([inStock])
+}
+
+// Model to test various default values and constraints
+model Settings {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique
+  value       String
+  isPublic    Boolean  @default(false)
+  priority    Int      @default(0)
+  updatedAt   DateTime @updatedAt
+}

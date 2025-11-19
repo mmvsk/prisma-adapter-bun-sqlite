@@ -1,0 +1,71 @@
+{
+  "name": "prisma-adapter-bunsqlite",
+  "version": "0.1.0",
+  "description": "Prisma driver adapter for Bun's native SQLite (bun:sqlite) - zero dependencies, production-ready",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "bun run build:js && bun run build:types",
+    "build:js": "bun build src/index.ts --outdir dist --target bun --format esm",
+    "build:types": "tsc --project tsconfig.build.json",
+    "prepublishOnly": "bun run build && bun test",
+    "test": "bun test",
+    "prisma:generate": "bunx prisma generate",
+    "prisma:migrate": "bunx prisma migrate dev"
+  },
+  "keywords": [
+    "prisma",
+    "adapter",
+    "driver-adapter",
+    "bun",
+    "sqlite",
+    "bun-sqlite",
+    "database",
+    "orm",
+    "sql"
+  ],
+  "author": "mmvsk",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mmvsk/prisma-adapter-bunsqlite.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mmvsk/prisma-adapter-bunsqlite/issues"
+  },
+  "homepage": "https://github.com/mmvsk/prisma-adapter-bunsqlite#readme",
+  "peerDependencies": {
+    "@prisma/client": ">=6.0.0",
+    "bun-types": ">=1.3.0"
+  },
+  "peerDependenciesMeta": {
+    "bun-types": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "@prisma/driver-adapter-utils": "^6.19.0"
+  },
+  "devDependencies": {
+    "@prisma/adapter-libsql": "^6.19.0",
+    "@prisma/client": "^6.19.0",
+    "@types/bun": "^1.3.2",
+    "prisma": "^6.19.0",
+    "typescript": "^6.0.0-dev.20251119"
+  },
+  "engines": {
+    "bun": ">=1.3.0"
+  }
+}
