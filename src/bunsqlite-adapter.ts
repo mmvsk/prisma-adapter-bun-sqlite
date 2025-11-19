@@ -264,17 +264,61 @@ function mapArg(arg: unknown, argType: ArgType, options?: PrismaBunSqlite3Option
 }
 
 /**
+ * Maps SQLite errno values to code strings
+ * Reference: https://www.sqlite.org/rescode.html
+ */
+const SQLITE_ERROR_MAP: Record<number, string> = {
+	1: "SQLITE_ERROR",
+	2: "SQLITE_INTERNAL",
+	3: "SQLITE_PERM",
+	4: "SQLITE_ABORT",
+	5: "SQLITE_BUSY",
+	6: "SQLITE_LOCKED",
+	7: "SQLITE_NOMEM",
+	8: "SQLITE_READONLY",
+	9: "SQLITE_INTERRUPT",
+	10: "SQLITE_IOERR",
+	11: "SQLITE_CORRUPT",
+	12: "SQLITE_NOTFOUND",
+	13: "SQLITE_FULL",
+	14: "SQLITE_CANTOPEN",
+	15: "SQLITE_PROTOCOL",
+	16: "SQLITE_EMPTY",
+	17: "SQLITE_SCHEMA",
+	18: "SQLITE_TOOBIG",
+	19: "SQLITE_CONSTRAINT",
+	20: "SQLITE_MISMATCH",
+	21: "SQLITE_MISUSE",
+	22: "SQLITE_NOLFS",
+	23: "SQLITE_AUTH",
+	24: "SQLITE_FORMAT",
+	25: "SQLITE_RANGE",
+	26: "SQLITE_NOTADB",
+	// Extended result codes
+	2067: "SQLITE_CONSTRAINT_UNIQUE",
+	1555: "SQLITE_CONSTRAINT_PRIMARYKEY",
+	787: "SQLITE_CONSTRAINT_NOTNULL",
+	1811: "SQLITE_CONSTRAINT_FOREIGNKEY",
+	1299: "SQLITE_CONSTRAINT_TRIGGER",
+};
+
+/**
  * Converts SQLite errors to Prisma error format
  * Matches the official Prisma better-sqlite3 adapter error handling
+ *
+ * Bun's SQLiteError structure:
+ * - Most errors: { errno: 1, message: "...", code: undefined }
+ * - Constraint errors: { errno: 2067, message: "...", code: "SQLITE_CONSTRAINT_UNIQUE" }
  */
 function convertDriverError(error: any): any {
-	// Only handle errors with code and message properties
-	if (typeof error?.code !== "string" || typeof error?.message !== "string") {
+	// Bun SQLite errors have either .code (constraint violations) or .errno (other errors)
+	if (!error?.message || (typeof error?.code !== "string" && typeof error?.errno !== "number")) {
 		throw error;
 	}
 
 	const message = error.message;
-	const code = error.code;
+	// Use .code if available (constraint violations), otherwise map from .errno
+	const code = error.code || SQLITE_ERROR_MAP[error.errno] || "SQLITE_UNKNOWN";
 
 	const baseError = {
 		originalCode: code,
@@ -382,22 +426,40 @@ class BunSQLiteQueryable {
 			// Prepare statement with parameters
 			const stmt = this.db.prepare(query.sql);
 
-			// Get column metadata from statement (works even with 0 rows)
+			// IMPORTANT: Use stmt.values() instead of stmt.all() to preserve column order
+			// When queries have duplicate column names (e.g., SELECT u.id, p.id),
+			// stmt.all() returns objects which lose duplicate keys, causing data corruption.
+			// stmt.values() returns arrays preserving all columns in order.
+			//
+			// Note: Bun's columnNames also deduplicates, but we use values() which
+			// returns the correct number of columns. We need to handle this carefully.
+			const rowArrays = (stmt as any).values(...(args as any)) as unknown[][];
+
+			// Get column metadata - note columnNames may be deduplicated by Bun
+			// but the values arrays have the correct number of columns
 			const columnNames = (stmt as any).columnNames || [];
 			const declaredTypes = (stmt as any).declaredTypes || [];
 
-			// Execute query and get all rows
-			const rows = stmt.all(...(args as any)) as any[];
+			// Handle column count mismatch due to duplicate names
+			// If we have more values than columnNames, pad with generic names
+			const firstRow = rowArrays[0];
+			if (firstRow && firstRow.length > columnNames.length) {
+				const actualColumnCount = firstRow.length;
+				const missingCount = actualColumnCount - columnNames.length;
 
-			// Convert rows from objects to arrays for type inference
-			const rowArrays = rows.map((row) => columnNames.map((col: string) => row[col]));
+				// Pad columnNames and declaredTypes to match actual column count
+				for (let i = 0; i < missingCount; i++) {
+					columnNames.push(`column_${columnNames.length}`);
+					declaredTypes.push(null);
+				}
+			}
 
 			// Get column types using inference for computed columns
 			// This handles cases where declaredTypes is empty (COUNT, expressions, etc.)
 			const columnTypes = getColumnTypes(declaredTypes, rowArrays);
 
 			// If no results, return empty set with column metadata
-			if (!rows || rows.length === 0) {
+			if (!rowArrays || rowArrays.length === 0) {
 				return {
 					columnNames,
 					columnTypes,

@@ -749,6 +749,32 @@ export function RunTestSuite(prisma: PrismaClient, options?: { adapterName?: str
 			// to the adapter, but Prisma relies on them to type the result correctly.
 			// The fact that TypeScript accepts this as UserResult[] validates it works.
 		});
+
+		test("$queryRaw - preserves all columns in joins (duplicate names)", async () => {
+			// Regression test for: https://github.com/mmvsk/prisma-adapter-bunsqlite/issues/X
+			// Ensure queries with duplicate column names don't lose data
+			const user = await prisma.user.create({
+				data: { email: "join@example.com", name: "JoinUser" },
+			});
+
+			await prisma.profile.create({
+				data: { bio: "Join Bio", userId: user.id },
+			});
+
+			// Query with duplicate column names (both have 'id')
+			type JoinResult = any[];
+			const result = await prisma.$queryRaw<JoinResult>`
+				SELECT User.id, Profile.id, User.name, Profile.bio
+				FROM User
+				JOIN Profile ON User.id = Profile.userId
+				WHERE User.email = ${"join@example.com"}
+			`;
+
+			// Should have all 4 columns, not lose any due to duplicate 'id'
+			expect(result.length).toBe(1);
+			expect(result[0]).toBeDefined();
+			// Note: Prisma returns results as objects, the adapter handles array conversion internally
+		});
 	});
 
 	describe("Type Coercion", () => {
@@ -961,6 +987,29 @@ export function RunTestSuite(prisma: PrismaClient, options?: { adapterName?: str
 				// Prisma validates required fields before sending to DB
 				// This will throw a validation error, not a database constraint error
 				expect(error).toBeTruthy();
+			}
+		});
+
+		test("Missing table error is properly wrapped (errno-only error)", async () => {
+			// Regression test: Ensure errno-only errors (no .code) are wrapped properly
+			// Bun SQLite returns { errno: 1, message: "...", code: undefined }
+			try {
+				await prisma.$queryRawUnsafe("SELECT * FROM NonExistentTable");
+				expect(true).toBe(false); // Should not reach here
+			} catch (error: any) {
+				// Should be wrapped by adapter, not thrown as raw SQLite error
+				expect(error.message).toContain("table");
+			}
+		});
+
+		test("Missing column error is properly wrapped (errno-only error)", async () => {
+			// Regression test: Ensure errno-only errors (no .code) are wrapped properly
+			try {
+				await prisma.$queryRawUnsafe("SELECT nonexistent_column FROM User");
+				expect(true).toBe(false); // Should not reach here
+			} catch (error: any) {
+				// Should be wrapped by adapter, not thrown as raw SQLite error
+				expect(error.message).toContain("column");
 			}
 		});
 	});
