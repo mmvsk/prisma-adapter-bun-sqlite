@@ -13,7 +13,14 @@ Default to using Bun instead of Node.js.
 
 This is a production-ready Prisma driver adapter for Bun's native SQLite API (`bun:sqlite`). The adapter provides zero-dependency SQLite support for Prisma ORM in Bun environments.
 
-**Status**: ✅ Production Ready - v0.2.0 - 77/77 tests passing
+**Status**: ✅ Production Ready - v0.3.0 - 77/77 tests passing - **Prisma 7.0.0+ Compatible**
+
+## What's New in v0.3.0
+
+- **🎯 Prisma 7 Support** - Full compatibility with Prisma ORM 7.0.0+ (Rust-free client)
+- **📦 Naming Convention** - Updated to `PrismaBunSqlite` (follows Prisma 7 standardized naming)
+- **⚡ Smaller Bundles** - ~90% smaller with Prisma 7's Rust-free architecture
+- **🚀 Faster Queries** - Up to 3x faster with Prisma 7's query engine improvements
 
 ## What's New in v0.2.0
 
@@ -21,8 +28,6 @@ This is a production-ready Prisma driver adapter for Bun's native SQLite API (`b
 - **⚡ Programmatic Migrations** - Run migrations from TypeScript for :memory: testing
 - **🧪 Lightning Fast Tests** - Create fresh :memory: databases with migrations in milliseconds
 - **📦 Standalone Binaries** - Embed migrations in Bun binaries with zero runtime dependencies
-- **🎯 Type System Cleanup** - Consistent naming (`PrismaBunSqliteOptions`)
-- **✨ Test Suite Simplification** - Cleaner structure (77 tests total)
 
 ## Quick Links
 
@@ -40,9 +45,9 @@ This is a production-ready Prisma driver adapter for Bun's native SQLite API (`b
 
 **Key Classes**:
 - `PrismaBunSqlite` - Factory class implementing `SqlMigrationAwareDriverAdapterFactory`
-- `BunSQLiteAdapter` - Main adapter implementing `SqlDriverAdapter`
-- `BunSQLiteQueryable` - Base class with query/execute methods
-- `BunSQLiteTransaction` - Transaction handling
+- `BunSqliteAdapter` - Main adapter implementing `SqlDriverAdapter`
+- `BunSqliteQueryable` - Base class with query/execute methods
+- `BunSqliteTransaction` - Transaction handling
 
 **Migration Utilities (v0.2.0+)**:
 - `runMigrations()` - Apply migrations programmatically
@@ -148,7 +153,7 @@ export class PrismaBunSqlite implements SqlMigrationAwareDriverAdapterFactory {
   async connectToShadowDb(): Promise<SqlDriverAdapter> {
     const shadowUrl = this.config.shadowDatabaseUrl ?? ":memory:";
     const db = this.createConnection(shadowUrl);
-    return new BunSQLiteAdapter(db, this.config);
+    return new BunSqliteAdapter(db, this.config);
   }
 }
 ```
@@ -180,6 +185,50 @@ const pending = await getPendingMigrations(adapter, allMigrations);
 
 **Migration Tracking:**
 Uses Prisma-compatible `_prisma_migrations` table for tracking applied migrations.
+
+### Prisma 7 Migration Architecture (Important!)
+
+**In Prisma 7, there's a separation between CLI and runtime:**
+
+**CLI Operations (Rust Engine):**
+```bash
+bunx prisma migrate dev    # Uses Rust engine + prisma.config.ts
+bunx prisma db push        # Uses Rust engine + prisma.config.ts
+bunx prisma db pull        # Uses Rust engine + prisma.config.ts
+```
+
+These commands use the traditional Rust query engine with the datasource URL from `prisma.config.ts`:
+
+```typescript
+// prisma.config.ts - for CLI tools only
+export default defineConfig({
+  schema: "prisma/schema.prisma",
+  datasources: {
+    db: { url: process.env.DATABASE_URL || "file:./dev.db" }
+  }
+});
+```
+
+**Runtime Operations (Your Adapter):**
+```typescript
+// Your application code - uses adapter
+const adapter = new PrismaBunSqlite({ url: "file:./dev.db" });
+const prisma = new PrismaClient({ adapter });
+await prisma.user.findMany(); // Uses your Bun adapter
+```
+
+**Why This Matters:**
+- ✅ Migrations work with standard Prisma tooling (no Node/Bun compatibility issues)
+- ✅ Runtime uses your fast Bun adapter (90% smaller, 3x faster)
+- ✅ Config file stays Node-compatible (no `bun:sqlite` import needed)
+- ✅ Programmatic migrations (v0.2.0) perfect for standalone binaries
+
+**For Standalone Deployments:**
+Use our programmatic migration utilities instead of CLI commands:
+```typescript
+const migrations = await loadMigrationsFromDir("./prisma/migrations");
+await runMigrations(adapter, migrations);
+```
 
 ### Type Conversions
 

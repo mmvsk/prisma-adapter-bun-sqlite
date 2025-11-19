@@ -45,21 +45,21 @@ This adapter implements Prisma's `SqlDriverAdapter` interface for Bun's native `
 └────────────┬────────────────────────┘
              │
 ┌────────────▼────────────────────────┐
-│   BunSQLiteAdapter                  │
+│   BunSqliteAdapter                  │
 │   - Implements SqlDriverAdapter     │
 │   - Manages transactions            │
 │   - Executes scripts (migrations)   │
 └────────────┬────────────────────────┘
              │
 ┌────────────▼────────────────────────┐
-│   BunSQLiteQueryable (Base)         │
+│   BunSqliteQueryable (Base)         │
 │   - queryRaw implementation         │
 │   - executeRaw implementation       │
 │   - Type conversion logic           │
 └────────────┬────────────────────────┘
              │
 ┌────────────▼────────────────────────┐
-│   BunSQLiteTransaction              │
+│   BunSqliteTransaction              │
 │   - Transaction-specific methods    │
 │   - commit() / rollback()           │
 └─────────────────────────────────────┘
@@ -68,9 +68,9 @@ This adapter implements Prisma's `SqlDriverAdapter` interface for Bun's native `
 ### Class Hierarchy
 
 ```typescript
-BunSQLiteQueryable (base class)
-├── BunSQLiteAdapter (main adapter)
-└── BunSQLiteTransaction (transaction handler)
+BunSqliteQueryable (base class)
+├── BunSqliteAdapter (main adapter)
+└── BunSqliteTransaction (transaction handler)
 
 PrismaBunSqlite (factory)
 ```
@@ -258,7 +258,7 @@ async startTransaction(isolationLevel?: IsolationLevel): Promise<Transaction> {
   this.db.run("BEGIN DEFERRED");
   this.transactionActive = true;
 
-  return new BunSQLiteTransaction(this.db, options, this.adapterOptions, () => {
+  return new BunSqliteTransaction(this.db, options, this.adapterOptions, () => {
     this.transactionActive = false;
     releaseMutex();
   });
@@ -268,7 +268,7 @@ async startTransaction(isolationLevel?: IsolationLevel): Promise<Transaction> {
 **Transaction Object:**
 
 ```typescript
-class BunSQLiteTransaction extends BunSQLiteQueryable implements Transaction {
+class BunSqliteTransaction extends BunSqliteQueryable implements Transaction {
   async commit(): Promise<void> {
     // With usePhantomQuery: true, adapter MUST call COMMIT
     this.db.run("COMMIT");
@@ -368,7 +368,7 @@ export class PrismaBunSqlite {
     db.run("PRAGMA busy_timeout = 5000");    // Handle locks
     db.run("PRAGMA journal_mode = WAL");     // Performance
 
-    return new BunSQLiteAdapter(db, this.options);
+    return new BunSqliteAdapter(db, this.options);
   }
 }
 ```
@@ -531,7 +531,7 @@ export class PrismaBunSqlite implements SqlMigrationAwareDriverAdapterFactory {
     // Defaults to :memory: for speed
     const shadowUrl = this.config.shadowDatabaseUrl ?? ":memory:";
     const db = this.createConnection(shadowUrl);
-    return new BunSQLiteAdapter(db, this.config);
+    return new BunSqliteAdapter(db, this.config);
   }
 }
 ```
@@ -811,9 +811,9 @@ src/
 │   ├── Row Conversion
 │   ├── Argument Mapping
 │   ├── Error Conversion
-│   ├── BunSQLiteQueryable (Base)
-│   ├── BunSQLiteTransaction
-│   ├── BunSQLiteAdapter
+│   ├── BunSqliteQueryable (Base)
+│   ├── BunSqliteTransaction
+│   ├── BunSqliteAdapter
 │   └── PrismaBunSqlite Factory
 ├── migrations.ts           # Migration utilities (v0.2.0+)
 │   ├── runMigrations()

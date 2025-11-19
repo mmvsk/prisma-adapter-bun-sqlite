@@ -16,7 +16,7 @@ import {
 const ADAPTER_NAME = "@prisma/adapter-bunsqlite";
 
 /**
- * Runtime options for BunSQLite adapter
+ * Runtime options for BunSqlite adapter
  * These options control how data is converted between SQLite and Prisma formats
  */
 export type PrismaBunSqliteOptions = {
@@ -409,7 +409,7 @@ function convertDriverError(error: any): any {
 /**
  * Base queryable class for both adapter and transactions
  */
-class BunSQLiteQueryable {
+class BunSqliteQueryable {
 	constructor(
 		protected db: Database,
 		protected adapterOptions?: PrismaBunSqliteOptions,
@@ -555,7 +555,7 @@ class BunSQLiteQueryable {
 /**
  * Transaction implementation
  */
-class BunSQLiteTransaction extends BunSQLiteQueryable implements Transaction {
+class BunSqliteTransaction extends BunSqliteQueryable implements Transaction {
 	constructor(
 		db: Database,
 		readonly options: TransactionOptions,
@@ -621,9 +621,9 @@ class AsyncMutex {
 }
 
 /**
- * Main BunSQLite adapter class
+ * Main BunSqlite adapter class
  */
-export class BunSQLiteAdapter extends BunSQLiteQueryable implements SqlDriverAdapter {
+export class BunSqliteAdapter extends BunSqliteQueryable implements SqlDriverAdapter {
 	private transactionMutex = new AsyncMutex();
 
 	constructor(db: Database, adapterOptions?: PrismaBunSqliteOptions) {
@@ -671,7 +671,7 @@ export class BunSQLiteAdapter extends BunSQLiteQueryable implements SqlDriverAda
 				releaseLock();
 			};
 
-			return new BunSQLiteTransaction(this.db, options, this.adapterOptions, onComplete);
+			return new BunSqliteTransaction(this.db, options, this.adapterOptions, onComplete);
 		} catch (error: any) {
 			// Release lock on error
 			releaseLock();
@@ -698,14 +698,14 @@ export class BunSQLiteAdapter extends BunSQLiteQueryable implements SqlDriverAda
 }
 
 /**
- * Factory function to create a BunSQLite adapter
+ * Factory function to create a BunSqlite adapter
  */
-export function createBunSQLiteAdapter(db: Database): SqlDriverAdapter {
-	return new BunSQLiteAdapter(db);
+export function createBunSqliteAdapter(db: Database): SqlDriverAdapter {
+	return new BunSqliteAdapter(db);
 }
 
 /**
- * Configuration options for BunSQLite adapter
+ * Configuration options for BunSqlite adapter
  */
 export type PrismaBunSqliteConfig = {
 	/**
@@ -723,7 +723,7 @@ export type PrismaBunSqliteConfig = {
 } & PrismaBunSqliteOptions;
 
 /**
- * BunSQLite adapter factory for Prisma Client
+ * BunSqlite adapter factory for Prisma Client
  * Implements SqlMigrationAwareDriverAdapterFactory for shadow database support
  */
 export class PrismaBunSqlite implements SqlMigrationAwareDriverAdapterFactory {
@@ -767,7 +767,7 @@ export class PrismaBunSqlite implements SqlMigrationAwareDriverAdapterFactory {
 	 */
 	async connect(): Promise<SqlDriverAdapter> {
 		const db = this.createConnection(this.config.url);
-		return new BunSQLiteAdapter(db, this.config);
+		return new BunSqliteAdapter(db, this.config);
 	}
 
 	/**
@@ -779,6 +779,6 @@ export class PrismaBunSqlite implements SqlMigrationAwareDriverAdapterFactory {
 		// Use :memory: by default for shadow database (faster and isolated)
 		const shadowUrl = this.config.shadowDatabaseUrl ?? ":memory:";
 		const db = this.createConnection(shadowUrl);
-		return new BunSQLiteAdapter(db, this.config);
+		return new BunSqliteAdapter(db, this.config);
 	}
 }

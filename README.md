@@ -94,6 +94,85 @@ const user = await prisma.user.create({
 console.log(user);
 ```
 
+## 🔄 Migrations in Prisma 7
+
+**Important:** Prisma 7 separates CLI operations from runtime operations. Here's how it works:
+
+### CLI Migrations (Rust Engine)
+
+When you run migration commands, Prisma uses the **traditional Rust query engine** (not your adapter):
+
+```bash
+# These commands use prisma.config.ts datasource URL
+bunx prisma migrate dev      # ✅ Uses Rust engine
+bunx prisma db push          # ✅ Uses Rust engine
+bunx prisma db pull          # ✅ Uses Rust engine
+bunx prisma migrate deploy   # ✅ Uses Rust engine
+```
+
+**Configuration in `prisma.config.ts`:**
+
+```typescript
+import { defineConfig } from "prisma/config";
+
+export default defineConfig({
+  schema: "prisma/schema.prisma",
+  migrations: {
+    path: "prisma/migrations",
+  },
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL || "file:./prisma/dev.db"
+    }
+  }
+});
+```
+
+### Runtime Queries (Your Adapter)
+
+Your application code uses the **adapter** for all database operations:
+
+```typescript
+// Your application - uses adapter
+const adapter = new PrismaBunSqlite({ url: "file:./dev.db" });
+const prisma = new PrismaClient({ adapter });
+
+await prisma.user.findMany(); // ✅ Uses your Bun adapter
+```
+
+### Why This Architecture?
+
+| Aspect | CLI (Rust Engine) | Runtime (Adapter) |
+|--------|------------------|------------------|
+| **Commands** | `migrate dev`, `db push` | Your app queries |
+| **Engine** | Traditional Rust | Rust-free JS compiler |
+| **Speed** | Standard | 3x faster |
+| **Bundle Size** | N/A (CLI only) | 90% smaller |
+| **Compatibility** | Works with Node | Optimized for Bun |
+
+### Standalone Deployments (No node_modules)
+
+For standalone binaries, use **programmatic migrations** (v0.2.0+):
+
+```typescript
+import { createTestDatabase, loadMigrationsFromDir } from "prisma-adapter-bunsqlite";
+
+// Load migrations at build time
+const migrations = await loadMigrationsFromDir("./prisma/migrations");
+
+// Apply to :memory: database (perfect for testing!)
+const adapter = await createTestDatabase(migrations);
+
+// Or apply to file database
+import { PrismaBunSqlite } from "prisma-adapter-bunsqlite";
+const adapter = new PrismaBunSqlite({ url: "file:./app.db" });
+await runMigrations(adapter, migrations);
+```
+
+**See [examples/](./examples/) for complete standalone binary examples.**
+
+---
+
 ## API Reference
 
 ### `PrismaBunSqlite`
@@ -148,16 +227,16 @@ const adapter = new PrismaBunSqlite({
 });
 ```
 
-### `BunSQLiteAdapter`
+### `BunSqliteAdapter`
 
 Low-level adapter class (advanced usage).
 
 ```typescript
 import { Database } from "bun:sqlite";
-import { BunSQLiteAdapter } from "prisma-adapter-bunsqlite";
+import { BunSqliteAdapter } from "prisma-adapter-bunsqlite";
 
 const db = new Database("./dev.db");
-const adapter = new BunSQLiteAdapter(db, options);
+const adapter = new BunSqliteAdapter(db, options);
 ```
 
 ### Migration Utilities (v0.2.0+)

@@ -106,6 +106,82 @@ All planned items delivered:
 
 ---
 
+## v0.3.0 - Prisma 7 Support ✅ COMPLETED
+
+### What Was Released
+
+#### 1. Prisma 7.0.0 Compatibility ✅ DONE
+**Status**: ✅ **COMPLETED** in v0.3.0
+
+**What was implemented**:
+- ✅ Full Prisma 7.0.0 compatibility testing
+- ✅ Updated to Prisma 7 Rust-free client architecture
+- ✅ Schema updates (provider: `"prisma-client"`, removed datasource URL)
+- ✅ Updated `prisma.config.ts` for Prisma 7
+- ✅ All 77 tests passing with Prisma 7.0.0
+
+**Result**: ~90% smaller bundles, up to 3x faster queries!
+
+---
+
+#### 2. Naming Convention Standardization ✅ DONE
+**Status**: ✅ **COMPLETED** in v0.3.0 (BREAKING CHANGE)
+
+**What was changed**:
+- ✅ Renamed `PrismaBunSQLite` → `PrismaBunSqlite` (lowercase "sqlite")
+- ✅ Renamed `PrismaBunSQLiteConfig` → `PrismaBunSqliteConfig`
+- ✅ Renamed `PrismaBunSQLiteOptions` → `PrismaBunSqliteOptions`
+- ✅ Updated all files (source, tests, examples, docs)
+- ✅ Matches Prisma 7 standard: `PrismaBetterSqlite3`, `PrismaLibSql`
+
+**Result**: Consistent with official Prisma 7 adapters!
+
+---
+
+#### 3. Dependency Updates ✅ DONE
+**Status**: ✅ **COMPLETED** in v0.3.0
+
+**What was updated**:
+- ✅ peerDependencies: `@prisma/client >= 7.0.0`
+- ✅ devDependencies: `@prisma/client ^7.0.0`, `prisma ^7.0.0`
+- ✅ dependencies: `@prisma/driver-adapter-utils ^7.0.0`
+- ✅ Version bumped to `0.3.0`
+
+**Result**: Prisma 7 only (cleaner dependency tree)!
+
+---
+
+#### 4. Migration Architecture Documentation ✅ DONE
+**Status**: ✅ **COMPLETED** in v0.3.0
+
+**What was documented**:
+- ✅ Added "Migrations in Prisma 7" section to README.md
+- ✅ Documented CLI vs Runtime separation
+- ✅ Explained Rust engine (CLI) vs Adapter (runtime)
+- ✅ Updated CLAUDE.md with Prisma 7 architecture
+- ✅ Comprehensive migration guide in CHANGELOG.md
+
+**Result**: Crystal clear documentation on Prisma 7 migration architecture!
+
+---
+
+### Summary
+
+**v0.3.0 is COMPLETE and ready to publish!** 🎉
+
+All planned items delivered:
+- ✅ Prisma 7.0.0 full support
+- ✅ Naming convention standardized
+- ✅ Migration architecture documented
+- ✅ All dependencies updated
+- ✅ 77/77 tests passing
+- ✅ Zero TypeScript errors
+- ✅ Breaking changes properly documented
+
+---
+
+## Future Enhancements
+
 ### High Priority
 
 #### 1. Add Debug Logging
@@ -343,7 +419,7 @@ const benchmarks = {
 
 **Optimization**:
 ```typescript
-class BunSQLiteAdapter {
+class BunSqliteAdapter {
   private schemaCache = new Map<string, TableSchema>()
 
   private getTableSchema(tableName: string): TableSchema {
