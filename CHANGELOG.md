@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.4.0] - 2025-11-21
+
+### Changed
+
+- **Transaction Handling** ⚡
+  - Changed `usePhantomQuery: true` → `false` (matches official `@prisma/adapter-better-sqlite3`)
+  - Simplified commit/rollback methods to only release mutex lock
+  - Prisma engine now sends COMMIT/ROLLBACK SQL through executeRaw() for cleaner lifecycle
+  - Removed `BEGIN DEFERRED` → `BEGIN` for standard transaction start
+
+### Added
+
+- **Production-Ready WAL Configuration** 🚀
+  - Added comprehensive `WalConfiguration` type with advanced options
+  - `synchronous` mode: OFF/NORMAL/FULL/EXTRA (2-3x performance difference)
+  - `walAutocheckpoint`: Control checkpoint frequency for write-heavy workloads
+  - `busyTimeout`: Configurable lock timeout (default 5000ms)
+  - WAL now opt-in (not enabled by default) for better defaults
+  - Gracefully handles `:memory:` databases (WAL not supported)
+
+- **Enhanced Type Support** 📊
+  - **UNSIGNED integer types**: `TINYINT UNSIGNED`, `SMALLINT UNSIGNED`, `MEDIUMINT UNSIGNED`, `INT UNSIGNED`, `INTEGER UNSIGNED`, `BIGINT UNSIGNED`
+    - Fixes type warnings for Prisma's `_prisma_migrations` table (`INTEGER UNSIGNED`)
+  - **VARCHAR/CHAR length specifiers**: Now handles `VARCHAR(255)`, `CHAR(10)`, etc.
+    - Strips length specifiers before type mapping: `VARCHAR(255)` → `VARCHAR`
+  - **JSON type**: Added `JSON` alongside existing `JSONB` support
+  - **CHAR type**: Added explicit `CHAR` type mapping to Text
+
+### Testing
+
+- **90 total tests** (up from 77)
+- Added 13 comprehensive tests for new features:
+  - 8 WAL configuration tests (enable/disable, advanced options, synchronous modes, shadow DB)
+  - 5 type support tests (UNSIGNED integers, VARCHAR lengths, JSON, CHAR)
+- All tests passing ✅
+
+### Documentation
+
+- Updated CHANGELOG.md with detailed feature descriptions
+- Updated README.md with WAL configuration examples
+- Updated ARCHITECTURE.md with transaction handling explanation
+- Updated CLAUDE.md with implementation notes
+
+---
+
 ## [0.3.2] - 2025-11-20
 
 ### Documentation

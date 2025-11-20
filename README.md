@@ -3,17 +3,9 @@
 A native Prisma driver adapter for [Bun's built-in SQLite](https://bun.sh/docs/api/sqlite) (`bun:sqlite`). Zero Node.js dependencies, optimized for Bun runtime.
 
 [![npm version](https://img.shields.io/npm/v/prisma-adapter-bun-sqlite)](https://www.npmjs.com/package/prisma-adapter-bun-sqlite)
-[![Tests](https://img.shields.io/badge/tests-77%2F77%20passing-success)](./tests)
+[![Tests](https://img.shields.io/badge/tests-90%2F90%20passing-success)](./tests)
 [![Bun](https://img.shields.io/badge/bun-v1.3.2+-black)](https://bun.sh)
 [![Prisma](https://img.shields.io/badge/prisma-7.0.0+-blue)](https://prisma.io)
-
-## ✨ What's New in v0.3.0
-
-- **🎯 Prisma 7 Support** - Full compatibility with Prisma ORM 7.0.0+ (Rust-free client)
-- **📦 Naming Convention** - Updated to `PrismaBunSqlite` (follows Prisma 7 standardized naming)
-- **⚡ Smaller Bundles** - ~90% smaller with Prisma 7's Rust-free architecture
-- **🔄 Shadow Database Support** - Full `prisma migrate dev` compatibility (v0.2.0+)
-- **💾 Programmatic Migrations** - Run migrations from TypeScript for :memory: testing (v0.2.0+)
 
 [See full changelog →](./CHANGELOG.md)
 
@@ -23,7 +15,7 @@ A native Prisma driver adapter for [Bun's built-in SQLite](https://bun.sh/docs/a
 - **🚀 Zero Dependencies**: Uses Bun's native `bun:sqlite` - no Node.js packages or native binaries required
 - **📦 Pure JavaScript Migrations**: Run migrations programmatically without shipping migration files or CLI tools (v0.2.0+)
 - **🎯 Single Binary Deployment**: Perfect for `bun build --compile` - embed everything in one executable
-- **✅ Production Ready**: Passes 77/77 comprehensive tests covering all Prisma operations
+- **✅ Production Ready**: Passes 90/90 comprehensive tests covering all Prisma operations
 - **🔄 Full Migration Support**: Shadow database + programmatic migrations for seamless development and deployment
 - **📝 Fully Compatible**: Drop-in replacement for `@prisma/adapter-libsql` or `@prisma/adapter-better-sqlite3`
 
@@ -196,6 +188,16 @@ type PrismaBunSqliteConfig = {
   safeIntegers?: boolean;                         // Optional: Default true
                                                    // Enable safe 64-bit integer handling
                                                    // Prevents precision loss for BIGINT values
+  wal?: boolean | WalConfiguration;               // Optional: WAL mode configuration
+                                                   // true = enable with defaults
+                                                   // object = advanced configuration
+};
+
+type WalConfiguration = {
+  enabled: boolean;                               // Enable/disable WAL mode
+  synchronous?: "OFF" | "NORMAL" | "FULL" | "EXTRA";  // Sync mode (performance vs durability)
+  walAutocheckpoint?: number;                     // Pages before auto-checkpoint
+  busyTimeout?: number;                           // Lock timeout in milliseconds
 };
 ```
 
@@ -225,6 +227,23 @@ const adapter = new PrismaBunSqlite({
 const adapter = new PrismaBunSqlite({
   url: "file:./dev.db",
   safeIntegers: false
+});
+
+// With WAL mode enabled (simple)
+const adapter = new PrismaBunSqlite({
+  url: "file:./dev.db",
+  wal: true  // Enable WAL with default settings
+});
+
+// With advanced WAL configuration (production)
+const adapter = new PrismaBunSqlite({
+  url: "file:./dev.db",
+  wal: {
+    enabled: true,
+    synchronous: "NORMAL",      // 2-3x faster than FULL, still safe
+    walAutocheckpoint: 2000,    // Checkpoint every 2000 pages
+    busyTimeout: 10000          // 10 second lock timeout
+  }
 });
 ```
 

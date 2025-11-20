@@ -13,7 +13,14 @@ Default to using Bun instead of Node.js.
 
 This is a production-ready Prisma driver adapter for Bun's native SQLite API (`bun:sqlite`). The adapter provides zero-dependency SQLite support for Prisma ORM in Bun environments.
 
-**Status**: ✅ Production Ready - v0.3.0 - 77/77 tests passing - **Prisma 7.0.0+ Compatible**
+**Status**: ✅ Production Ready - v0.4.0 - 90/90 tests passing - **Prisma 7.0.0+ Compatible**
+
+## What's New in v0.4.0
+
+- **⚡ Fixed Transaction Handling** - Changed `usePhantomQuery: true` → `false` (matches official @prisma/adapter-better-sqlite3)
+- **🚀 WAL Configuration** - Added production-ready WAL mode options (synchronous, busyTimeout, walAutocheckpoint)
+- **📊 Enhanced Type Support** - Added UNSIGNED integers, VARCHAR lengths, JSON, CHAR types
+- **🧪 13 New Tests** - Comprehensive WAL and type support testing (90 total, up from 77)
 
 ## What's New in v0.3.0
 
@@ -42,6 +49,7 @@ This is a production-ready Prisma driver adapter for Bun's native SQLite API (`b
 - `tests/general.test.ts` - Core adapter tests (57 tests)
 - `tests/migrations.test.ts` - Migration utilities tests (11 tests)
 - `tests/shadow-database.test.ts` - Shadow DB tests (9 tests)
+- `tests/wal-and-types.test.ts` - WAL and type support tests (13 tests)
 
 **Key Classes**:
 - `PrismaBunSqlite` - Factory class implementing `SqlMigrationAwareDriverAdapterFactory`
@@ -61,7 +69,7 @@ This is a production-ready Prisma driver adapter for Bun's native SQLite API (`b
 Run tests with:
 
 ```bash
-# All tests (77 tests total)
+# All tests (90 tests total)
 bun test
 
 # Core adapter only
@@ -72,9 +80,12 @@ bun test tests/migrations.test.ts
 
 # Shadow database only
 bun test tests/shadow-database.test.ts
+
+# WAL and type support only
+bun test tests/wal-and-types.test.ts
 ```
 
-**Test Coverage** (77 tests total):
+**Test Coverage** (90 tests total):
 
 **General Tests (57 tests):**
 - 12 CRUD operation tests
@@ -110,13 +121,27 @@ bun test tests/shadow-database.test.ts
 - Shadow DB inherits timestampFormat config
 - Shadow DB works with prisma.config.ts
 
+**WAL and Type Support Tests (13 tests):**
+- WAL disabled by default
+- WAL enable with `wal: true`
+- Advanced WAL options (synchronous, busyTimeout, walAutocheckpoint)
+- Different synchronous modes (OFF, NORMAL, FULL, EXTRA)
+- Memory database ignores WAL gracefully
+- Shadow database with WAL
+- INTEGER UNSIGNED handling (Prisma migrations table)
+- All UNSIGNED integer variants
+- VARCHAR with length specifiers
+- Common Prisma schema types
+- JSON and JSONB types
+- CHAR type variants
+
 ## Development Workflow
 
 ### Making Changes
 
 1. **Edit source code**: `src/adapter.ts` or `src/migrations.ts`
 2. **Run tests**: `bun test`
-3. **Verify all tests pass**: All 77 tests should pass (57 general + 11 migrations + 9 shadow DB)
+3. **Verify all tests pass**: All 90 tests should pass (57 general + 11 migrations + 9 shadow DB + 13 WAL/types)
 
 ### Adding Features
 
@@ -161,8 +186,31 @@ export class PrismaBunSqlite implements SqlMigrationAwareDriverAdapterFactory {
 **Key features:**
 - Defaults to `:memory:` for maximum speed
 - Fully isolated from main database
-- Inherits all config options (safeIntegers, timestampFormat)
+- Inherits all config options (safeIntegers, timestampFormat, wal)
 - WAL mode automatically disabled for :memory: databases
+
+### WAL Configuration (v0.4.0+)
+
+Comprehensive Write-Ahead Logging configuration for production workloads:
+
+```typescript
+const adapter = new PrismaBunSqlite({
+  url: "file:./dev.db",
+  wal: {
+    enabled: true,
+    synchronous: "NORMAL",      // 2-3x faster than FULL
+    walAutocheckpoint: 2000,    // Checkpoint every 2000 pages
+    busyTimeout: 10000          // 10 second lock timeout
+  }
+});
+```
+
+**Key features:**
+- WAL disabled by default (opt-in for better defaults)
+- Configurable synchronous mode: OFF/NORMAL/FULL/EXTRA (2-3x performance difference)
+- Control checkpoint frequency for write-heavy workloads
+- Customizable lock timeout for concurrent access
+- Gracefully ignored for `:memory:` databases (WAL not supported)
 
 ### Programmatic Migrations (v0.2.0+)
 
@@ -284,8 +332,17 @@ The adapter automatically configures SQLite with:
 
 ```typescript
 PRAGMA foreign_keys = ON        // Enable FK constraints (required for cascades)
-PRAGMA busy_timeout = 5000      // 5 second lock timeout
-PRAGMA journal_mode = WAL       // Write-Ahead Logging (only for file-based DBs, not :memory:)
+PRAGMA busy_timeout = 5000      // 5 second lock timeout (default if WAL not configured)
+```
+
+**Optional: WAL mode** (opt-in, v0.4.0+):
+
+```typescript
+// If wal: true or wal: { enabled: true }
+PRAGMA journal_mode = WAL              // Write-Ahead Logging
+PRAGMA synchronous = <config>          // Configurable (OFF/NORMAL/FULL/EXTRA)
+PRAGMA wal_autocheckpoint = <config>   // Configurable checkpoint frequency
+PRAGMA busy_timeout = <config>         // Configurable lock timeout
 ```
 
 **Factory Configuration:**
@@ -295,7 +352,13 @@ const adapter = new PrismaBunSqlite({
   url: "file:./dev.db",
   shadowDatabaseUrl: ":memory:",  // Optional, defaults to :memory:
   safeIntegers: true,              // Optional, defaults to true
-  timestampFormat: "iso8601"       // Optional, defaults to "iso8601"
+  timestampFormat: "iso8601",      // Optional, defaults to "iso8601"
+  wal: {                           // Optional, defaults to disabled
+    enabled: true,
+    synchronous: "NORMAL",
+    walAutocheckpoint: 2000,
+    busyTimeout: 10000
+  }
 });
 ```
 

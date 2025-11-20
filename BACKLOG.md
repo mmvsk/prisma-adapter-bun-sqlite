@@ -352,15 +352,27 @@ new PrismaBunSqlite({
 - ✅ Add LICENSE file
 - ✅ Add regression tests
 
+### v0.4.0
+- ✅ **#1: Add Debug Logging** - Added comprehensive debug logging matching official adapters
+- ✅ **#2: Remove Dead Code** - Removed unused `getColumnTypesForQuery()` method (45 lines)
+- ✅ **#3: Base64 BLOB Handling** - Removed unnecessary base64 decoding (Bun returns Uint8Array directly)
+- ✅ **#6: Add JSDoc Comments** - Added comprehensive JSDoc to all public API
+- ✅ **#9: usePhantomQuery: false** - Changed to match official better-sqlite3 adapter
+- ✅ **#15: WAL Configuration** - Added production-ready WAL configuration with advanced options
+- ✅ **Enhanced Type Support** - Added UNSIGNED integers, VARCHAR lengths, JSON, CHAR types
+- ✅ **13 New Tests** - Comprehensive WAL and type support testing (90 total tests)
+
 ---
 
 ## Decision Log
 
 ### Decisions Made
 
-1. **Keep `usePhantomQuery: true`** (v0.1.1)
-   - Rationale: Current implementation correct, refactor not justified
-   - Can reconsider with performance data
+1. ~~**Keep `usePhantomQuery: true`** (v0.1.1)~~ **REVERSED in v0.4.0**
+   - **NEW**: Changed to `usePhantomQuery: false` (v0.4.0)
+   - Rationale: Matches official @prisma/adapter-better-sqlite3 pattern
+   - Simpler implementation with empty commit/rollback methods
+   - Prisma engine handles COMMIT/ROLLBACK SQL
 
 2. **Use `stmt.values()` over `stmt.all()`** (v0.1.1)
    - Rationale: Fixes data corruption with duplicate columns
@@ -373,6 +385,15 @@ new PrismaBunSqlite({
 4. **Default `safeIntegers: true`** (v0.1.0)
    - Rationale: Prevent silent data corruption for large integers
    - Users can opt-out if needed
+
+5. **Remove Base64 BLOB handling** (v0.4.0)
+   - Rationale: Bun always returns BLOBs as Uint8Array, never as base64 strings
+   - Removed 12 lines of unnecessary code
+
+6. **WAL disabled by default** (v0.4.0)
+   - Rationale: Opt-in approach better for default behavior
+   - Production users can enable with custom configuration
+   - Prevents unexpected behavior changes
 
 ---
 

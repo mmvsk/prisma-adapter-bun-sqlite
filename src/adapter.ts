@@ -3,6 +3,7 @@ import {
 	ColumnTypeEnum,
 	type ArgType,
 	type ColumnType,
+	Debug,
 	DriverAdapterError,
 	type IsolationLevel,
 	type SqlDriverAdapter,
@@ -14,63 +15,109 @@ import {
 } from "@prisma/driver-adapter-utils";
 
 const ADAPTER_NAME = "prisma-adapter-bun-sqlite";
+const debug = Debug("prisma:driver-adapter:bun-sqlite");
 
 /**
- * WAL (Write-Ahead Logging) mode configuration for SQLite
- * Only applies to file-based databases (:memory: databases don't support WAL)
+ * WAL (Write-Ahead Logging) mode configuration for SQLite.
+ * Only applies to file-based databases (:memory: databases don't support WAL).
+ *
+ * @example
+ * ```typescript
+ * const adapter = new PrismaBunSqlite({
+ *   url: "file:./dev.db",
+ *   wal: {
+ *     enabled: true,
+ *     synchronous: "NORMAL",  // 2-3x faster than FULL
+ *     walAutocheckpoint: 2000,
+ *     busyTimeout: 10000
+ *   }
+ * });
+ * ```
+ *
+ * @see https://www.sqlite.org/wal.html
  */
 export type WalConfiguration = {
 	/**
-	 * Enable or disable WAL mode
+	 * Enable or disable WAL mode.
 	 * @default false
 	 */
 	enabled: boolean;
+
 	/**
-	 * Synchronous mode for WAL
-	 * - OFF: No fsync at all (fastest, least safe)
-	 * - NORMAL: Fsync only at checkpoints (2-3x faster than FULL)
-	 * - FULL: Fsync after every write (safest, slowest)
-	 * - EXTRA: Extra durability checks
+	 * Synchronous mode for WAL - controls durability vs performance trade-off.
+	 * - `OFF`: No fsync at all (fastest, least safe)
+	 * - `NORMAL`: Fsync only at checkpoints (2-3x faster than FULL, recommended for most cases)
+	 * - `FULL`: Fsync after every write (safest, slowest)
+	 * - `EXTRA`: Extra durability checks
+	 *
 	 * @default undefined (SQLite default, usually FULL)
+	 * @see https://www.sqlite.org/pragma.html#pragma_synchronous
 	 */
 	synchronous?: "OFF" | "NORMAL" | "FULL" | "EXTRA";
+
 	/**
-	 * Number of pages before automatic WAL checkpoint
-	 * Lower values = more frequent checkpoints = slower writes but smaller WAL files
-	 * Higher values = fewer checkpoints = faster writes but larger WAL files
+	 * Number of pages before automatic WAL checkpoint.
+	 * - Lower values = more frequent checkpoints = slower writes but smaller WAL files
+	 * - Higher values = fewer checkpoints = faster writes but larger WAL files
+	 *
 	 * @default undefined (SQLite default, usually 1000)
+	 * @see https://www.sqlite.org/pragma.html#pragma_wal_autocheckpoint
 	 */
 	walAutocheckpoint?: number;
+
 	/**
-	 * Busy timeout in milliseconds
-	 * How long to wait when database is locked
+	 * Busy timeout in milliseconds - how long to wait when database is locked.
+	 *
 	 * @default undefined (will use 5000ms if not specified)
+	 * @see https://www.sqlite.org/pragma.html#pragma_busy_timeout
 	 */
 	busyTimeout?: number;
 };
 
 /**
- * Runtime options for BunSqlite adapter
- * These options control how data is converted between SQLite and Prisma formats
+ * Runtime options for BunSqlite adapter.
+ * These options control how data is converted between SQLite and Prisma formats.
+ *
+ * @example
+ * ```typescript
+ * const adapter = new PrismaBunSqlite({
+ *   url: "file:./dev.db",
+ *   timestampFormat: "iso8601",  // or "unixepoch-ms"
+ *   safeIntegers: true,           // prevent precision loss for BIGINT
+ *   wal: true                     // enable WAL mode
+ * });
+ * ```
  */
 export type PrismaBunSqliteOptions = {
 	/**
-	 * How to format DateTime values in the database
+	 * How to format DateTime values in the database.
+	 * - `iso8601`: Stores as ISO 8601 strings (human-readable, default)
+	 * - `unixepoch-ms`: Stores as Unix timestamps in milliseconds (more efficient)
+	 *
 	 * @default "iso8601"
 	 */
 	timestampFormat?: "iso8601" | "unixepoch-ms";
+
 	/**
 	 * Enable safe 64-bit integer handling.
-	 * When true, BIGINT columns return as BigInt instead of number,
-	 * preventing precision loss for values > Number.MAX_SAFE_INTEGER.
+	 * When `true`, BIGINT columns return as `BigInt` instead of `number`,
+	 * preventing precision loss for values > `Number.MAX_SAFE_INTEGER` (2^53-1).
+	 *
 	 * @default true
+	 * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number/MAX_SAFE_INTEGER
 	 */
 	safeIntegers?: boolean;
+
 	/**
-	 * WAL (Write-Ahead Logging) configuration
-	 * Can be boolean (true = enable with defaults) or detailed config object
-	 * Only applies to file-based databases (:memory: ignores this)
+	 * WAL (Write-Ahead Logging) configuration.
+	 * - `true`: Enable WAL with default settings
+	 * - `WalConfiguration`: Enable WAL with custom settings
+	 * - `undefined`: WAL disabled (default)
+	 *
+	 * Only applies to file-based databases (:memory: databases ignore this).
+	 *
 	 * @default undefined (WAL disabled)
+	 * @see WalConfiguration
 	 */
 	wal?: boolean | WalConfiguration;
 };
@@ -223,19 +270,6 @@ function mapRow(row: unknown[], columnTypes: ColumnType[]): unknown[] {
 		if (value instanceof Uint8Array || Buffer.isBuffer(value)) {
 			result[i] = Array.from(value);
 			continue;
-		}
-
-		// Handle BLOB/Bytes that come as base64 string from bun:sqlite
-		// Only decode base64 if the column type is explicitly Bytes
-		if (typeof value === "string" && columnTypes[i] === ColumnTypeEnum.Bytes) {
-			try {
-				// Decode as base64
-				const buffer = Buffer.from(value, "base64");
-				result[i] = Array.from(buffer);
-				continue;
-			} catch {
-				// If not base64, treat as regular string
-			}
 		}
 
 		// Handle integers stored as floats - truncate to integer
@@ -475,6 +509,9 @@ class BunSqliteQueryable {
 	 * Execute a query and return the result set
 	 */
 	async queryRaw(query: SqlQuery): Promise<SqlResultSet> {
+		const tag = "[js::queryRaw]";
+		debug(`${tag} %O`, query);
+
 		try {
 			// Fast path: if no special types need conversion, skip mapping
 			const needsMapping = query.argTypes.some(
@@ -555,6 +592,9 @@ class BunSqliteQueryable {
 	 * Execute a query and return the number of affected rows
 	 */
 	async executeRaw(query: SqlQuery): Promise<number> {
+		const tag = "[js::executeRaw]";
+		debug(`${tag} %O`, query);
+
 		try {
 			// Fast path: if no special types need conversion, skip mapping
 			const needsMapping = query.argTypes.some(
@@ -580,52 +620,6 @@ class BunSqliteQueryable {
 			throw new DriverAdapterError(convertDriverError(error));
 		}
 	}
-
-	/**
-	 * Get column types for a query result
-	 */
-	private getColumnTypesForQuery(sql: string, columnNames: string[], rows: any[]): ColumnType[] {
-		// Build a type map from all tables that might be mentioned in the query
-		const typeMap = new Map<string, string>();
-
-		// Extract all possible table names from the SQL
-		// Match: FROM table, JOIN table, INSERT INTO table, UPDATE table
-		// Handle backticks, quotes, and schema-qualified names like `main`.`User`
-		const tablePattern = /(?:FROM|JOIN|INTO|UPDATE)\s+(?:`?\w+`?\.)?[`"']?(\w+)[`"']?/gi;
-		const tables = new Set<string>();
-
-		let match;
-		while ((match = tablePattern.exec(sql)) !== null) {
-			if (match[1]) {
-				tables.add(match[1]);
-			}
-		}
-
-		// Get schema info from all mentioned tables
-		for (const tableName of tables) {
-			try {
-				const schema = this.db.prepare(`PRAGMA table_info("${tableName}")`).all() as any[];
-				for (const col of schema) {
-					// Don't overwrite if already exists (prefer first table's columns)
-					if (!typeMap.has(col.name)) {
-						typeMap.set(col.name, col.type);
-					}
-				}
-			} catch {
-				// Ignore errors for invalid table names
-			}
-		}
-
-		// If we found type mappings, use them
-		if (typeMap.size > 0) {
-			const declaredTypes = columnNames.map((name) => typeMap.get(name) || "");
-			return getColumnTypes(declaredTypes, rows.map((row) => columnNames.map((col) => row[col])));
-		}
-
-		// Fallback: infer types from data
-		const rowArrays = rows.map((row) => columnNames.map((col) => row[col]));
-		return getColumnTypes(columnNames.map(() => ""), rowArrays);
-	}
 }
 
 /**
@@ -647,12 +641,14 @@ class BunSqliteTransaction extends BunSqliteQueryable implements Transaction {
 	}
 
 	async commit(): Promise<void> {
+		debug("[js::commit]");
 		// With usePhantomQuery: false, Prisma engine sends COMMIT via executeRaw
 		// This method just releases the transaction lock
 		this.releaseLock();
 	}
 
 	async rollback(): Promise<void> {
+		debug("[js::rollback]");
 		// With usePhantomQuery: false, Prisma engine sends ROLLBACK via executeRaw
 		// This method just releases the transaction lock
 		this.releaseLock();
@@ -725,6 +721,12 @@ export class BunSqliteAdapter extends BunSqliteQueryable implements SqlDriverAda
 	 * This means Prisma engine sends COMMIT/ROLLBACK through executeRaw()
 	 */
 	async startTransaction(isolationLevel?: IsolationLevel): Promise<Transaction> {
+		const tag = "[js::startTransaction]";
+		const options: TransactionOptions = {
+			usePhantomQuery: false,
+		};
+		debug(`${tag} options: %O`, options);
+
 		// SQLite only supports SERIALIZABLE isolation level
 		if (isolationLevel && isolationLevel !== "SERIALIZABLE") {
 			throw new DriverAdapterError({
@@ -739,10 +741,6 @@ export class BunSqliteAdapter extends BunSqliteQueryable implements SqlDriverAda
 		try {
 			// Begin transaction
 			this.db.run("BEGIN");
-
-			const options: TransactionOptions = {
-				usePhantomQuery: false, // Match official better-sqlite3 adapter
-			};
 
 			return new BunSqliteTransaction(this.db, options, this.adapterOptions, releaseLock);
 		} catch (error: any) {
@@ -778,26 +776,74 @@ export function createBunSqliteAdapter(db: Database): SqlDriverAdapter {
 }
 
 /**
- * Configuration options for BunSqlite adapter
+ * Configuration options for PrismaBunSqlite adapter factory.
+ * Combines database connection settings with runtime options.
+ *
+ * @example
+ * ```typescript
+ * const adapter = new PrismaBunSqlite({
+ *   url: "file:./dev.db",
+ *   shadowDatabaseUrl: ":memory:",
+ *   timestampFormat: "iso8601",
+ *   safeIntegers: true,
+ *   wal: true
+ * });
+ * ```
  */
 export type PrismaBunSqliteConfig = {
 	/**
-	 * Database URL (file path or :memory:)
-	 * Examples: "file:./dev.db", "file:/absolute/path/db.sqlite", ":memory:"
+	 * Database URL - file path or `:memory:` for in-memory database.
+	 *
+	 * @example
+	 * - `"file:./dev.db"` - Relative path
+	 * - `"file:/absolute/path/db.sqlite"` - Absolute path
+	 * - `":memory:"` - In-memory database
 	 */
 	url: string;
+
 	/**
-	 * Shadow database URL for migrations (optional)
+	 * Shadow database URL for migrations (optional).
 	 * Used by Prisma Migrate for migration testing and diffing.
-	 * Defaults to ":memory:" if not specified.
-	 * Examples: "file:./shadow.db", ":memory:"
+	 * Defaults to `:memory:` if not specified for maximum speed.
+	 *
+	 * @default ":memory:"
+	 * @example
+	 * - `"file:./shadow.db"` - File-based shadow database
+	 * - `":memory:"` - In-memory shadow database (faster)
 	 */
 	shadowDatabaseUrl?: string;
 } & PrismaBunSqliteOptions;
 
 /**
- * BunSqlite adapter factory for Prisma Client
- * Implements SqlMigrationAwareDriverAdapterFactory for shadow database support
+ * Prisma driver adapter factory for Bun's native SQLite (`bun:sqlite`).
+ *
+ * This is the main entry point for using the adapter with Prisma Client.
+ * Implements `SqlMigrationAwareDriverAdapterFactory` for full migration support.
+ *
+ * @example Basic usage
+ * ```typescript
+ * import { PrismaClient } from "@prisma/client";
+ * import { PrismaBunSqlite } from "prisma-adapter-bun-sqlite";
+ *
+ * const adapter = new PrismaBunSqlite({ url: "file:./dev.db" });
+ * const prisma = new PrismaClient({ adapter });
+ *
+ * const users = await prisma.user.findMany();
+ * ```
+ *
+ * @example With WAL mode
+ * ```typescript
+ * const adapter = new PrismaBunSqlite({
+ *   url: "file:./dev.db",
+ *   wal: {
+ *     enabled: true,
+ *     synchronous: "NORMAL",
+ *     walAutocheckpoint: 2000
+ *   }
+ * });
+ * ```
+ *
+ * @see https://github.com/mmvsk/prisma-adapter-bun-sqlite
  */
 export class PrismaBunSqlite implements SqlMigrationAwareDriverAdapterFactory {
 	readonly provider = "sqlite" as const;

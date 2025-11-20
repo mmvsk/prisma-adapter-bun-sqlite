@@ -232,36 +232,36 @@ const fields = message
 
 ### 6. Transaction Management
 
-**Transaction Lifecycle & usePhantomQuery Coupling**
+**Transaction Lifecycle & usePhantomQuery: false**
 
-This adapter uses `usePhantomQuery: true`, which is **tightly coupled** with how we handle transaction lifecycle:
+This adapter uses `usePhantomQuery: false`, matching the **official @prisma/adapter-better-sqlite3** implementation:
 
-| Setting | COMMIT/ROLLBACK handled by | Phantom queries sent? |
-|---------|---------------------------|----------------------|
-| `usePhantomQuery: true` | **Adapter** (our code) | ✅ Yes (state verification) |
-| `usePhantomQuery: false` | **Prisma Engine** | ❌ No |
+| Setting | COMMIT/ROLLBACK handled by | How it works |
+|---------|---------------------------|--------------|
+| `usePhantomQuery: false` | **Prisma Engine** | Engine sends COMMIT/ROLLBACK SQL via executeRaw() |
+| `usePhantomQuery: true` | **Adapter** (our code) | Adapter executes COMMIT/ROLLBACK in commit()/rollback() methods |
 
-**Our Implementation** (lines 444-482):
+**Our Implementation**:
 
 ```typescript
 async startTransaction(isolationLevel?: IsolationLevel): Promise<Transaction> {
-  // Acquire mutex to prevent concurrent transactions
-  const releaseMutex = await this.transactionMutex.acquire();
+  // Acquire mutex to prevent concurrent transactions (SQLite single-writer)
+  const releaseLock = await this.transactionMutex.acquire();
 
   // SQLite only supports SERIALIZABLE
   if (isolationLevel && isolationLevel !== "SERIALIZABLE") {
-    releaseMutex();
+    releaseLock();
     throw new DriverAdapterError({ kind: "InvalidIsolationLevel", ... });
   }
 
   // Begin transaction explicitly
-  this.db.run("BEGIN DEFERRED");
-  this.transactionActive = true;
+  this.db.run("BEGIN");
 
-  return new BunSqliteTransaction(this.db, options, this.adapterOptions, () => {
-    this.transactionActive = false;
-    releaseMutex();
-  });
+  const options: TransactionOptions = {
+    usePhantomQuery: false  // Match official better-sqlite3 adapter
+  };
+
+  return new BunSqliteTransaction(this.db, options, this.adapterOptions, releaseLock);
 }
 ```
 
@@ -270,29 +270,33 @@ async startTransaction(isolationLevel?: IsolationLevel): Promise<Transaction> {
 ```typescript
 class BunSqliteTransaction extends BunSqliteQueryable implements Transaction {
   async commit(): Promise<void> {
-    // With usePhantomQuery: true, adapter MUST call COMMIT
-    this.db.run("COMMIT");
-    this.onComplete();  // Reset transactionActive flag + release mutex
+    // With usePhantomQuery: false, Prisma engine sends COMMIT via executeRaw
+    // This method just releases the transaction lock
+    this.releaseLock();
   }
 
   async rollback(): Promise<void> {
-    // With usePhantomQuery: true, adapter MUST call ROLLBACK
-    this.db.run("ROLLBACK");
-    this.onComplete();
+    // With usePhantomQuery: false, Prisma engine sends ROLLBACK via executeRaw
+    // This method just releases the transaction lock
+    this.releaseLock();
   }
 }
 ```
 
-**Why Manual BEGIN/COMMIT/ROLLBACK?**
+**How Transaction Lifecycle Works:**
 
-1. **usePhantomQuery: true requires it**: When this flag is enabled, Prisma expects the adapter to manage the full transaction lifecycle
-2. **Matches @prisma/adapter-libsql**: The official libsql adapter uses the same pattern
-3. **Different from better-sqlite3**: That adapter uses `usePhantomQuery: false` and lets Prisma handle COMMIT/ROLLBACK
+1. **App calls** `prisma.$transaction()`
+2. **Adapter's startTransaction()** acquires mutex lock and executes `BEGIN`
+3. **App performs queries** → all go through adapter's queryRaw/executeRaw
+4. **Prisma engine sends** `COMMIT` or `ROLLBACK` SQL → adapter executes via executeRaw()
+5. **Transaction methods called** → adapter's commit()/rollback() releases mutex lock
 
-**IMPORTANT**: These two settings MUST be changed together:
-- If we switch to `usePhantomQuery: false`, we must remove COMMIT/ROLLBACK from transaction methods
-- If we keep `usePhantomQuery: true`, we must keep explicit COMMIT/ROLLBACK
-- Mixing them causes "Transaction already closed" or uncommitted writes
+**Why usePhantomQuery: false?**
+
+1. **Matches official pattern**: `@prisma/adapter-better-sqlite3` uses this approach
+2. **Cleaner separation**: Engine controls transaction SQL, adapter controls locking
+3. **Simpler implementation**: commit()/rollback() are just mutex unlocks
+4. **No edge cases**: No need to intercept or special-case COMMIT/ROLLBACK SQL
 
 **AsyncMutex for Transaction Serialization**
 
