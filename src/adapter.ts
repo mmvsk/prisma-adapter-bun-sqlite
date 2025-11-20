@@ -522,8 +522,8 @@ class BunSqliteQueryable {
 				return argType ? mapArg(arg, argType, this.timestampFormat) : arg;
 			});
 
-			// Prepare statement with parameters
-			const stmt = this.db.prepare(query.sql);
+			// Use db.query() which caches compiled statements (vs db.prepare() which recompiles every time)
+			const stmt = this.db.query(query.sql);
 
 			// IMPORTANT: Use stmt.values() instead of stmt.all() to preserve column order
 			// When queries have duplicate column names (e.g., SELECT u.id, p.id),
@@ -594,7 +594,8 @@ class BunSqliteQueryable {
 				return argType ? mapArg(arg, argType, this.timestampFormat) : arg;
 			});
 
-			const stmt = this.db.prepare(query.sql);
+			// Use db.query() which caches compiled statements (vs db.prepare() which recompiles every time)
+			const stmt = this.db.query(query.sql);
 			const result = stmt.run(...(args as any));
 			return result.changes;
 		} catch (error: any) {

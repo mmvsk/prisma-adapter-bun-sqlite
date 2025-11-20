@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.4.2] - 2025-11-21
+
+### Performance
+
+- **CRITICAL: Statement Caching** 🚀
+  - Changed from `db.prepare()` to `db.query()` which caches compiled SQL statements
+  - Root cause: `db.prepare()` recompiles SQL on every call, `db.query()` caches internally
+  - Expected improvement: 2-6× faster on tmpfs/in-memory workloads (pending benchmark)
+  - On SSD: minimal difference (disk I/O dominates)
+
+---
+
 ## [0.4.1] - 2025-11-21
 
 ### Changed
@@ -68,7 +80,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated CHANGELOG.md with detailed feature descriptions
 - Updated README.md with WAL configuration examples
 - Updated ARCHITECTURE.md with transaction handling explanation
-- Updated CLAUDE.md with implementation notes
 
 ---
 
