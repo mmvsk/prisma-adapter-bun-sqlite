@@ -13,7 +13,7 @@ import {
 	type TransactionOptions,
 } from "@prisma/driver-adapter-utils";
 
-const ADAPTER_NAME = "prisma-adapter-bunsqlite";
+const ADAPTER_NAME = "prisma-adapter-bun-sqlite";
 
 /**
  * Runtime options for BunSqlite adapter

@@ -11,7 +11,7 @@
  * Run: ./myapp
  */
 
-import { PrismaBunSqlite } from "prisma-adapter-bunsqlite";
+import { PrismaBunSqlite } from "prisma-adapter-bun-sqlite";
 import { PrismaClient } from "@prisma/client";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";

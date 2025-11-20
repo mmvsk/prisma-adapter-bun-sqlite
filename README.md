@@ -2,7 +2,7 @@
 
 A native Prisma driver adapter for [Bun's built-in SQLite](https://bun.sh/docs/api/sqlite) (`bun:sqlite`). Zero Node.js dependencies, optimized for Bun runtime.
 
-[![npm version](https://img.shields.io/npm/v/prisma-adapter-bunsqlite)](https://www.npmjs.com/package/prisma-adapter-bunsqlite)
+[![npm version](https://img.shields.io/npm/v/prisma-adapter-bun-sqlite)](https://www.npmjs.com/package/prisma-adapter-bun-sqlite)
 [![Tests](https://img.shields.io/badge/tests-77%2F77%20passing-success)](./tests)
 [![Bun](https://img.shields.io/badge/bun-v1.3.2+-black)](https://bun.sh)
 [![Prisma](https://img.shields.io/badge/prisma-7.0.0+-blue)](https://prisma.io)
@@ -19,24 +19,24 @@ A native Prisma driver adapter for [Bun's built-in SQLite](https://bun.sh/docs/a
 
 ## Why This Adapter?
 
-- **🚀 Zero Dependencies**: Uses Bun's native `bun:sqlite` - no Node.js packages required
-- **⚡ Performance**: Native Bun API is faster than Node.js alternatives
-- **🎯 Simple Deployment**: Single binary deployment with Bun - no node_modules needed
+- **🚀 Zero Dependencies**: Uses Bun's native `bun:sqlite` - no Node.js packages or native binaries required
+- **📦 Pure JavaScript Migrations**: Run migrations programmatically without shipping migration files or CLI tools (v0.2.0+)
+- **🎯 Single Binary Deployment**: Perfect for `bun build --compile` - embed everything in one executable
 - **✅ Production Ready**: Passes 77/77 comprehensive tests covering all Prisma operations
-- **📦 Fully Compatible**: Drop-in replacement for `@prisma/adapter-libsql` or `@prisma/adapter-better-sqlite3`
-- **🔄 Full Migration Support**: Shadow database + programmatic migrations (v0.2.0+)
+- **🔄 Full Migration Support**: Shadow database + programmatic migrations for seamless development and deployment
+- **📝 Fully Compatible**: Drop-in replacement for `@prisma/adapter-libsql` or `@prisma/adapter-better-sqlite3`
 
 ## Installation
 
 ```bash
-bun add prisma-adapter-bunsqlite
+bun add prisma-adapter-bun-sqlite
 ```
 
 ### Install from Source (for development)
 
 ```bash
-git clone https://github.com/mmvsk/prisma-adapter-bunsqlite.git
-cd prisma-adapter-bunsqlite
+git clone https://github.com/mmvsk/prisma-adapter-bun-sqlite.git
+cd prisma-adapter-bun-sqlite
 bun install
 ```
 
@@ -75,7 +75,7 @@ bunx prisma generate
 
 ```typescript
 import { PrismaClient } from "@prisma/client";
-import { PrismaBunSqlite } from "prisma-adapter-bunsqlite";
+import { PrismaBunSqlite } from "prisma-adapter-bun-sqlite";
 
 // Create adapter instance
 const adapter = new PrismaBunSqlite({ url: "file:./dev.db" });
@@ -155,7 +155,7 @@ await prisma.user.findMany(); // ✅ Uses your Bun adapter
 For standalone binaries, use **programmatic migrations** (v0.2.0+):
 
 ```typescript
-import { createTestDatabase, loadMigrationsFromDir } from "prisma-adapter-bunsqlite";
+import { createTestDatabase, loadMigrationsFromDir } from "prisma-adapter-bun-sqlite";
 
 // Load migrations at build time
 const migrations = await loadMigrationsFromDir("./prisma/migrations");
@@ -164,7 +164,7 @@ const migrations = await loadMigrationsFromDir("./prisma/migrations");
 const adapter = await createTestDatabase(migrations);
 
 // Or apply to file database
-import { PrismaBunSqlite } from "prisma-adapter-bunsqlite";
+import { PrismaBunSqlite } from "prisma-adapter-bun-sqlite";
 const adapter = new PrismaBunSqlite({ url: "file:./app.db" });
 await runMigrations(adapter, migrations);
 ```
@@ -180,7 +180,7 @@ await runMigrations(adapter, migrations);
 Factory class for creating adapter instances.
 
 ```typescript
-import { PrismaBunSqlite } from "prisma-adapter-bunsqlite";
+import { PrismaBunSqlite } from "prisma-adapter-bun-sqlite";
 
 const adapter = new PrismaBunSqlite(config);
 ```
@@ -233,7 +233,7 @@ Low-level adapter class (advanced usage).
 
 ```typescript
 import { Database } from "bun:sqlite";
-import { BunSqliteAdapter } from "prisma-adapter-bunsqlite";
+import { BunSqliteAdapter } from "prisma-adapter-bun-sqlite";
 
 const db = new Database("./dev.db");
 const adapter = new BunSqliteAdapter(db, options);
@@ -250,7 +250,7 @@ import {
   loadMigrationsFromDir,
   getAppliedMigrations,
   getPendingMigrations,
-} from "prisma-adapter-bunsqlite";
+} from "prisma-adapter-bun-sqlite";
 ```
 
 **Quick Examples:**
@@ -408,7 +408,7 @@ const prisma = new PrismaClient({ adapter });
 
 ```diff
 - import { PrismaLibSQL } from "@prisma/adapter-libsql";
-+ import { PrismaBunSqlite } from "prisma-adapter-bunsqlite";
++ import { PrismaBunSqlite } from "prisma-adapter-bun-sqlite";
 
 - const adapter = new PrismaLibSQL({ url: "file:./dev.db" });
 + const adapter = new PrismaBunSqlite({ url: "file:./dev.db" });
@@ -421,7 +421,7 @@ const prisma = new PrismaClient({ adapter });
 ```diff
 - import Database from "better-sqlite3";
 - import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
-+ import { PrismaBunSqlite } from "prisma-adapter-bunsqlite";
++ import { PrismaBunSqlite } from "prisma-adapter-bun-sqlite";
 
 - const db = new Database("./dev.db");
 - const adapter = new PrismaBetterSqlite3(db);
@@ -513,8 +513,8 @@ Contributions welcome! Please read [ARCHITECTURE.md](./ARCHITECTURE.md) first to
 
 ```bash
 # Setup
-git clone https://github.com/mmvsk/prisma-adapter-bunsqlite.git
-cd prisma-adapter-bunsqlite
+git clone https://github.com/mmvsk/prisma-adapter-bun-sqlite.git
+cd prisma-adapter-bun-sqlite
 bun install
 
 # Run tests
@@ -542,6 +542,6 @@ MIT
 
 ## Support
 
-- [GitHub Issues](https://github.com/mmvsk/prisma-adapter-bunsqlite/issues)
+- [GitHub Issues](https://github.com/mmvsk/prisma-adapter-bun-sqlite/issues)
 - [Prisma Discord](https://discord.gg/prisma)
 - [Bun Discord](https://bun.sh/discord)

@@ -7,7 +7,7 @@
  * Result: Single binary with NO node_modules required!
  */
 
-import { PrismaBunSqlite } from "prisma-adapter-bunsqlite";
+import { PrismaBunSqlite } from "prisma-adapter-bun-sqlite";
 import { PrismaClient } from "@prisma/client";
 
 // Embed migrations as strings (can also use Bun.file() for external files)

@@ -1,5 +1,5 @@
 {
-  "name": "prisma-adapter-bunsqlite",
+  "name": "prisma-adapter-bun-sqlite",
   "version": "0.3.0",
   "description": "Prisma driver adapter for Bun's native SQLite (bun:sqlite) - zero dependencies, production-ready",
   "type": "module",
@@ -41,12 +41,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mmvsk/prisma-adapter-bunsqlite.git"
+    "url": "https://github.com/mmvsk/prisma-adapter-bun-sqlite.git"
   },
   "bugs": {
-    "url": "https://github.com/mmvsk/prisma-adapter-bunsqlite/issues"
+    "url": "https://github.com/mmvsk/prisma-adapter-bun-sqlite/issues"
   },
-  "homepage": "https://github.com/mmvsk/prisma-adapter-bunsqlite#readme",
+  "homepage": "https://github.com/mmvsk/prisma-adapter-bun-sqlite#readme",
   "peerDependencies": {
     "@prisma/client": ">=7.0.0",
     "bun-types": ">=1.3.0"

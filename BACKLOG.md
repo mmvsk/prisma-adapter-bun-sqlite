@@ -1,6 +1,6 @@
 # Development Backlog
 
-This document tracks future improvements, enhancements, and optimizations for `prisma-adapter-bunsqlite`.
+This document tracks future improvements, enhancements, and optimizations for `prisma-adapter-bun-sqlite`.
 
 ---
 
@@ -24,7 +24,7 @@ async queryRaw(query: SqlQuery) {
 ```
 
 **Files to change**:
-- `src/bunsqlite-adapter.ts`: Add debug calls to all methods
+- `src/adapter.ts`: Add debug calls to all methods
 - Add environment variable docs: `DEBUG=prisma:driver-adapter:bunsqlite`
 
 **Estimated effort**: 1-2 hours
@@ -39,7 +39,7 @@ async queryRaw(query: SqlQuery) {
 - Verify no other unused code
 
 **Files to change**:
-- `src/bunsqlite-adapter.ts`
+- `src/adapter.ts`
 
 **Estimated effort**: 30 minutes
 
@@ -68,7 +68,7 @@ if (typeof value === "string" && columnTypes[i] === ColumnTypeEnum.Bytes) {
 3. If YES: Add comment explaining when this happens
 
 **Files to change**:
-- `src/bunsqlite-adapter.ts`
+- `src/adapter.ts`
 - Add test if keeping the code
 
 **Estimated effort**: 1 hour
@@ -120,7 +120,7 @@ src/
  * const prisma = new PrismaClient({ adapter });
  * ```
  *
- * @see https://github.com/mmvsk/prisma-adapter-bunsqlite
+ * @see https://github.com/mmvsk/prisma-adapter-bun-sqlite
  */
 ```
 
@@ -399,8 +399,8 @@ See [ARCHITECTURE.md](../ARCHITECTURE.md) for implementation details.
 
 ## Questions?
 
-- Issues: https://github.com/mmvsk/prisma-adapter-bunsqlite/issues
-- Discussions: https://github.com/mmvsk/prisma-adapter-bunsqlite/discussions
+- Issues: https://github.com/mmvsk/prisma-adapter-bun-sqlite/issues
+- Discussions: https://github.com/mmvsk/prisma-adapter-bun-sqlite/discussions
 
 ---
 

@@ -94,7 +94,7 @@ import {
 
 ### 2. Column Type Detection
 
-**Algorithm** (lines 347-385 in `src/bunsqlite-adapter.ts`):
+**Algorithm** (lines 347-385 in `src/adapter.ts`):
 
 1. **Extract table names** from SQL using regex:
    ```typescript
@@ -358,7 +358,7 @@ The `PrismaBunSqlite` factory (lines 588-611):
 ```typescript
 export class PrismaBunSqlite {
   readonly provider = "sqlite" as const;
-  readonly adapterName = "@prisma/adapter-bunsqlite";
+  readonly adapterName = "prisma-adapter-bun-sqlite";
 
   async connect(): Promise<SqlDriverAdapter> {
     const db = new Database(this.dbPath);
@@ -510,7 +510,7 @@ const declaredTypes = (stmt as any).declaredTypes || [];
 - Add runtime checks for property existence
 - Document in code comments
 
-**Documented:** Added explanatory comments in v0.1.1 (see lines 382-387 in src/bunsqlite-adapter.ts)
+**Documented:** Added explanatory comments in v0.1.1 (see lines 382-387 in src/adapter.ts)
 
 ## New Features in v0.2.0
 
@@ -626,7 +626,7 @@ export type PrismaBunSqliteConfig = {
 
 **Before (v0.1.x):**
 - `tests/common/test-suite.ts` - Shared test suite
-- `tests/bunsqlite-adapter.test.ts` - Wrapper for bunsqlite
+- `tests/adapter.test.ts` - Wrapper for bunsqlite
 - `tests/libsql-adapter.test.ts` - Wrapper for libsql (baseline)
 - Dependency on `@prisma/adapter-libsql`
 
@@ -805,7 +805,7 @@ db.run("COMMIT");
 
 ```
 src/
-├── bunsqlite-adapter.ts    # Main adapter implementation
+├── adapter.ts    # Main adapter implementation
 │   ├── Types & Interfaces
 │   ├── Type Mapping
 │   ├── Row Conversion

@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to `prisma-adapter-bunsqlite` will be documented in this file.
+All notable changes to `prisma-adapter-bun-sqlite` will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -18,7 +18,7 @@ This release adds full compatibility with **Prisma ORM 7.0.0** (Rust-free client
 - **BREAKING**: Renamed `PrismaBunSQLite` → `PrismaBunSqlite` (lowercase "sqlite")
   - Follows Prisma 7's standardized naming convention
   - Matches official adapters: `PrismaBetterSqlite3`, `PrismaLibSql`, etc.
-  - Update your imports: `import { PrismaBunSqlite } from "prisma-adapter-bunsqlite"`
+  - Update your imports: `import { PrismaBunSqlite } from "prisma-adapter-bun-sqlite"`
 
 - **BREAKING**: Renamed `PrismaBunSQLiteConfig` → `PrismaBunSqliteConfig`
 
@@ -52,7 +52,7 @@ This release adds full compatibility with **Prisma ORM 7.0.0** (Rust-free client
 **1. Update Dependencies:**
 ```bash
 bun add @prisma/client@latest prisma@latest -d
-bun add prisma-adapter-bunsqlite@latest
+bun add prisma-adapter-bun-sqlite@latest
 ```
 
 **2. Update Schema:**
@@ -76,8 +76,8 @@ bun add prisma-adapter-bunsqlite@latest
 **3. Update Code:**
 ```diff
  import { PrismaClient } from "@prisma/client";
--import { PrismaBunSQLite } from "prisma-adapter-bunsqlite";
-+import { PrismaBunSqlite } from "prisma-adapter-bunsqlite";
+-import { PrismaBunSQLite } from "prisma-adapter-bun-sqlite";
++import { PrismaBunSqlite } from "prisma-adapter-bun-sqlite";
 
 -const adapter = new PrismaBunSQLite({ url: "file:./dev.db" });
 +const adapter = new PrismaBunSqlite({ url: "file:./dev.db" });
@@ -259,7 +259,7 @@ See [BACKLOG.md](./BACKLOG.md) for planned enhancements:
 
 ## Links
 
-- **npm**: https://www.npmjs.com/package/prisma-adapter-bunsqlite
-- **GitHub**: https://github.com/mmvsk/prisma-adapter-bunsqlite
-- **Issues**: https://github.com/mmvsk/prisma-adapter-bunsqlite/issues
+- **npm**: https://www.npmjs.com/package/prisma-adapter-bun-sqlite
+- **GitHub**: https://github.com/mmvsk/prisma-adapter-bun-sqlite
+- **Issues**: https://github.com/mmvsk/prisma-adapter-bun-sqlite/issues
 - **Roadmap**: [BACKLOG.md](./BACKLOG.md)

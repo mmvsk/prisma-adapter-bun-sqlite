@@ -1,6 +1,6 @@
 import { test, expect, describe, beforeEach } from "bun:test";
 import { PrismaClient } from "@/prisma-generated/client";
-import { PrismaBunSqlite } from "../src/bunsqlite-adapter";
+import { PrismaBunSqlite } from "../src/adapter";
 
 // Setup adapter and Prisma client
 const url = process.env.DATABASE_URL!;
@@ -754,7 +754,7 @@ beforeEach(async () => {
 		});
 
 		test("$queryRaw - preserves all columns in joins (duplicate names)", async () => {
-			// Regression test for: https://github.com/mmvsk/prisma-adapter-bunsqlite/issues/X
+			// Regression test for: https://github.com/mmvsk/prisma-adapter-bun-sqlite/issues/X
 			// Ensure queries with duplicate column names don't lose data
 			const user = await prisma.user.create({
 				data: { email: "join@example.com", name: "JoinUser" },

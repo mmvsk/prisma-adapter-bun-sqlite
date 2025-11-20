@@ -8,8 +8,8 @@
  *
  * @example
  * ```typescript
- * import { runMigrations } from "prisma-adapter-bunsqlite/migrations";
- * import { PrismaBunSqlite } from "prisma-adapter-bunsqlite";
+ * import { runMigrations } from "prisma-adapter-bun-sqlite/migrations";
+ * import { PrismaBunSqlite } from "prisma-adapter-bun-sqlite";
  *
  * const adapter = await new PrismaBunSqlite({ url: ":memory:" }).connect();
  * await runMigrations(adapter, [
@@ -174,7 +174,7 @@ export async function runMigrations(
  *
  * @example
  * ```typescript
- * import { loadMigrationsFromDir } from "prisma-adapter-bunsqlite/migrations";
+ * import { loadMigrationsFromDir } from "prisma-adapter-bun-sqlite/migrations";
  *
  * const migrations = await loadMigrationsFromDir("./prisma/migrations");
  * await runMigrations(adapter, migrations);
@@ -303,7 +303,7 @@ async function generateChecksum(sql: string): Promise<string> {
  *
  * @example
  * ```typescript
- * import { createTestDatabase } from "prisma-adapter-bunsqlite/migrations";
+ * import { createTestDatabase } from "prisma-adapter-bun-sqlite/migrations";
  * import { PrismaClient } from "@prisma/client";
  *
  * const adapter = await createTestDatabase([
@@ -318,7 +318,7 @@ export async function createTestDatabase(
 	migrations: Migration[],
 	config?: { safeIntegers?: boolean; timestampFormat?: "iso8601" | "unixepoch-ms" },
 ): Promise<SqlDriverAdapter> {
-	const { PrismaBunSqlite } = await import("./bunsqlite-adapter");
+	const { PrismaBunSqlite } = await import("./adapter");
 
 	const factory = new PrismaBunSqlite({
 		url: ":memory:",

@@ -1,6 +1,6 @@
 # Standalone Binary Examples
 
-These examples demonstrate how to create **standalone Bun binaries** with embedded Prisma migrations using `prisma-adapter-bunsqlite`.
+These examples demonstrate how to create **standalone Bun binaries** with embedded Prisma migrations using `prisma-adapter-bun-sqlite`.
 
 ## Why This Works
 
@@ -148,14 +148,14 @@ ssh server '/opt/myapp/myapp'  # Automatically runs migrations
 
 ## Comparison with Node.js Approaches
 
-| Feature                    | better-sqlite3 (Node) | prisma-adapter-bunsqlite (Bun) |
-| -------------------------- | --------------------- | ------------------------------ |
-| Native dependencies        | ✅ Yes (node-gyp)     | ❌ No (Bun built-in)           |
-| Standalone binary possible | ⚠️ Difficult          | ✅ Easy                        |
-| Binary size                | ~120MB + node_modules | ~50MB (Bun runtime only)       |
-| Cross-compile              | ❌ No (native module) | ✅ Yes (pure Bun)              |
-| Docker size                | ~200MB (Node + deps)  | ~90MB (Bun only)               |
-| Migration embedding        | ⚠️ Complex            | ✅ Simple (shown here)         |
+| Feature                    | better-sqlite3 (Node) | prisma-adapter-bun-sqlite (Bun) |
+| -------------------------- | --------------------- | -------------------------------- |
+| Native dependencies        | ✅ Yes (node-gyp)     | ❌ No (Bun built-in)             |
+| Standalone binary possible | ⚠️ Difficult          | ✅ Easy                          |
+| Binary size                | ~120MB + node_modules | ~50MB (Bun runtime only)         |
+| Cross-compile              | ❌ No (native module) | ✅ Yes (pure Bun)                |
+| Docker size                | ~200MB (Node + deps)  | ~90MB (Bun only)                 |
+| Migration embedding        | ⚠️ Complex            | ✅ Simple (shown here)           |
 
 ---
 
@@ -165,7 +165,7 @@ You can also build a custom migration CLI:
 
 ```typescript
 // migrate.ts
-import { PrismaBunSqlite } from "prisma-adapter-bunsqlite";
+import { PrismaBunSqlite } from "prisma-adapter-bun-sqlite";
 
 const adapter = await new PrismaBunSqlite({ url: "file:./data.db" }).connect();
 
@@ -198,7 +198,7 @@ Full `prisma migrate dev` support with shadow database is now available!
 
 ```typescript
 // prisma.config.ts
-import { PrismaBunSqlite } from "prisma-adapter-bunsqlite";
+import { PrismaBunSqlite } from "prisma-adapter-bun-sqlite";
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
@@ -277,4 +277,4 @@ try {
 - **CHANGELOG**: [../CHANGELOG.md](../CHANGELOG.md) - Recent changes
 - **BACKLOG**: [../BACKLOG.md](../BACKLOG.md) - Upcoming features
 - **Architecture**: [../ARCHITECTURE.md](../ARCHITECTURE.md) - How it works
-- **Issues**: https://github.com/mmvsk/prisma-adapter-bunsqlite/issues
+- **Issues**: https://github.com/mmvsk/prisma-adapter-bun-sqlite/issues

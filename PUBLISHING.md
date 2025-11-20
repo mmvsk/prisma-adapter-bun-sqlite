@@ -2,7 +2,7 @@
 
 ## Overview
 
-This package is published to npm under the scoped name `prisma-adapter-bunsqlite`.
+This package is published to npm under the scoped name `prisma-adapter-bun-sqlite`.
 
 **Package Structure**:
 - ESM only (no CommonJS)
@@ -94,20 +94,20 @@ After publishing:
    ```
 
 2. **Create GitHub Release**:
-   - Go to https://github.com/mmvsk/prisma-adapter-bunsqlite/releases
+   - Go to https://github.com/mmvsk/prisma-adapter-bun-sqlite/releases
    - Click "Draft a new release"
    - Select the tag created by `npm version`
    - Add release notes
 
 3. **Verify on npm**:
-   - Visit https://www.npmjs.com/package/prisma-adapter-bunsqlite
+   - Visit https://www.npmjs.com/package/prisma-adapter-bun-sqlite
    - Check version, files, and README
 
 4. **Test installation**:
    ```bash
    mkdir test-install && cd test-install
    bun init -y
-   bun add prisma-adapter-bunsqlite
+   bun add prisma-adapter-bun-sqlite
    ```
 
 ## Automated Pre-Publish
@@ -181,13 +181,13 @@ Only files listed in `package.json` `files` field:
 After publishing, users will get:
 
 ```
-prisma-adapter-bunsqlite/
+prisma-adapter-bun-sqlite/
 ├── dist/
 │   ├── index.js           # ESM JavaScript
 │   ├── index.d.ts         # TypeScript types
 │   ├── index.d.ts.map     # Source map for types
-│   ├── bunsqlite-adapter.d.ts
-│   └── bunsqlite-adapter.d.ts.map
+│   ├── adapter.d.ts
+│   └── adapter.d.ts.map
 ├── README.md
 ├── LICENSE
 └── package.json
@@ -199,14 +199,14 @@ prisma-adapter-bunsqlite/
 
 **Within 72 hours**:
 ```bash
-npm unpublish prisma-adapter-bunsqlite@0.1.0
+npm unpublish prisma-adapter-bun-sqlite@0.1.0
 ```
 
 **After 72 hours**: Cannot unpublish if package has downloads.
 
 **Better alternative**: Deprecate instead:
 ```bash
-npm deprecate prisma-adapter-bunsqlite@0.1.0 "Use version 0.2.0 instead"
+npm deprecate prisma-adapter-bun-sqlite@0.1.0 "Use version 0.2.0 instead"
 ```
 
 ## Troubleshooting
@@ -265,8 +265,8 @@ npm publish --tag beta
 
 Install with:
 ```bash
-bun add prisma-adapter-bunsqlite@alpha
-bun add prisma-adapter-bunsqlite@beta
+bun add prisma-adapter-bun-sqlite@alpha
+bun add prisma-adapter-bun-sqlite@beta
 ```
 
 ## Recommended Workflow
@@ -319,11 +319,11 @@ npm publish
 git push && git push --tags
 
 # Deprecate old version
-npm deprecate prisma-adapter-bunsqlite@0.1.0 "Upgrade to 0.2.0"
+npm deprecate prisma-adapter-bun-sqlite@0.1.0 "Upgrade to 0.2.0"
 
 # View package info
-npm info prisma-adapter-bunsqlite
+npm info prisma-adapter-bun-sqlite
 
 # View all versions
-npm info prisma-adapter-bunsqlite versions
+npm info prisma-adapter-bun-sqlite versions
 ```

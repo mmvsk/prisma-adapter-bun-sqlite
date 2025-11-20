@@ -36,7 +36,7 @@ This is a production-ready Prisma driver adapter for Bun's native SQLite API (`b
 - **[ARCHITECTURE.md](./ARCHITECTURE.md)** - Implementation details and design decisions (how it works)
 
 **Key Files**:
-- `src/bunsqlite-adapter.ts` - Main adapter implementation
+- `src/adapter.ts` - Main adapter implementation
 - `src/migrations.ts` - Migration utilities (v0.2.0+)
 - `src/index.ts` - Public exports
 - `tests/general.test.ts` - Core adapter tests (57 tests)
@@ -114,7 +114,7 @@ bun test tests/shadow-database.test.ts
 
 ### Making Changes
 
-1. **Edit source code**: `src/bunsqlite-adapter.ts` or `src/migrations.ts`
+1. **Edit source code**: `src/adapter.ts` or `src/migrations.ts`
 2. **Run tests**: `bun test`
 3. **Verify all tests pass**: All 77 tests should pass (57 general + 11 migrations + 9 shadow DB)
 
@@ -419,4 +419,4 @@ bun -e 'import { Database } from "bun:sqlite"; const db = new Database("./prisma
 - **Implementation details**: [ARCHITECTURE.md](./ARCHITECTURE.md)
 - **Release notes**: [CHANGELOG.md](./CHANGELOG.md) - What changed in each version
 - **Future roadmap**: [BACKLOG.md](./BACKLOG.md) - Planned features and improvements
-- **Repository**: https://github.com/mmvsk/prisma-adapter-bunsqlite
+- **Repository**: https://github.com/mmvsk/prisma-adapter-bun-sqlite

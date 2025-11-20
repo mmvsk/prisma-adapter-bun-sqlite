@@ -13,7 +13,7 @@
 import { test, expect, describe, beforeEach } from "bun:test";
 import { PrismaClient } from "@prisma/client";
 import { createTestDatabase, runMigrations, type Migration } from "../src/migrations";
-import { PrismaBunSqlite } from "../src/bunsqlite-adapter";
+import { PrismaBunSqlite } from "../src/adapter";
 
 // Define your migrations
 const migrations: Migration[] = [
