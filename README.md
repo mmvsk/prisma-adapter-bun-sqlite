@@ -19,6 +19,7 @@ A native Prisma driver adapter for [Bun's built-in SQLite](https://bun.sh/docs/a
 
 ## Why This Adapter?
 
+- **⚡ Fastest for Bun + SQLite**: 2.1x faster than alternatives with 100% test compatibility ([see benchmarks](https://github.com/mmvsk/prisma-adapter-bun-sqlite-benchmark))
 - **🚀 Zero Dependencies**: Uses Bun's native `bun:sqlite` - no Node.js packages or native binaries required
 - **📦 Pure JavaScript Migrations**: Run migrations programmatically without shipping migration files or CLI tools (v0.2.0+)
 - **🎯 Single Binary Deployment**: Perfect for `bun build --compile` - embed everything in one executable
@@ -462,14 +463,35 @@ Test coverage includes:
 
 ## Performance
 
-The adapter is optimized for performance:
+The adapter is **the fastest Prisma SQLite adapter for Bun**, outperforming all alternatives:
 
-- **Native Bun API**: Direct calls to `bun:sqlite` (no overhead)
-- **WAL Mode**: Write-Ahead Logging enabled by default
-- **Prepared Statements**: All queries use prepared statements
-- **Zero Dependencies**: No additional runtime overhead
+### Benchmark Results
 
-Benchmarks show comparable or better performance vs Node.js alternatives.
+Comprehensive benchmarks comparing all available Prisma SQLite adapters for Bun:
+
+**[📊 Full Benchmark Results](https://github.com/mmvsk/prisma-adapter-bun-sqlite-benchmark)**
+
+| Adapter | Performance | Correctness | Status |
+|---------|-------------|-------------|--------|
+| **prisma-adapter-bun-sqlite** | **242 ops/sec** 🏆 | ✅ 26/26 (100%) | **Recommended** |
+| @prisma/adapter-libsql | 115 ops/sec (2.1x slower) | ✅ 26/26 (100%) | OK for Turso |
+| @abcx3/prisma-bun-adapter | 111 ops/sec (2.2x slower) | ❌ 7/26 (27%) | **Not Recommended** |
+
+**Key advantages:**
+- **2.1x faster** than @prisma/adapter-libsql on real disk workloads
+- **100% test compatibility** - all Prisma features work correctly
+- **Foreign keys enforced** - data integrity guaranteed
+- **Proper error handling** - Prisma error codes (P2002, P2003, etc.)
+
+### Technical Optimizations
+
+- **Native Bun API**: Direct calls to `bun:sqlite` (zero overhead)
+- **WAL Mode**: Write-Ahead Logging for better concurrency and performance
+- **Prepared Statements**: All queries use prepared statements for security and speed
+- **Safe Integers**: BigInt handling prevents precision loss
+- **Zero Dependencies**: No runtime overhead from external packages
+
+The benchmark suite includes 26 comprehensive tests covering CRUD, relations, transactions, aggregations, and more. See the [benchmark repository](https://github.com/mmvsk/prisma-adapter-bun-sqlite-benchmark) for detailed results and methodology.
 
 ## Deployment
 

@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.2] - 2025-11-20
+
+### Documentation
+
+- **Performance Benchmark Results** 🏆
+  - Added comprehensive benchmark comparison with all Bun SQLite adapters
+  - **2.1x faster** than `@prisma/adapter-libsql` (242 vs 115 ops/sec)
+  - **2.2x faster** than `@abcx3/prisma-bun-adapter` (242 vs 111 ops/sec)
+  - 100% test compatibility (26/26 tests passing)
+  - Link to full benchmark repository: https://github.com/mmvsk/prisma-adapter-bun-sqlite-benchmark
+
+- **Updated README**
+  - Added benchmark results and performance comparisons
+  - Added "Fastest for Bun + SQLite" claim with supporting data
+  - Added detailed correctness analysis vs competitors
+
+---
+
+## [0.3.1] - 2025-11-20
+
+### Changed
+
+- **Package Naming**
+  - Final package name: `prisma-adapter-bun-sqlite` (kebab-case)
+  - Follows npm naming conventions
+  - Consistent with other Prisma adapters
+
+### Performance
+
+- **Query Optimization**
+  - Optimized internal query processing
+  - Improved prepared statement handling
+  - Enhanced type conversion performance
+  - Benchmarks show 2.1x performance improvement over alternatives
+
+---
+
 ## [0.3.0] - 2025-01-XX
 
 ### 🎯 Prisma 7.0.0 Support
