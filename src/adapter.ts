@@ -16,6 +16,40 @@ import {
 const ADAPTER_NAME = "prisma-adapter-bun-sqlite";
 
 /**
+ * WAL (Write-Ahead Logging) mode configuration for SQLite
+ * Only applies to file-based databases (:memory: databases don't support WAL)
+ */
+export type WalConfiguration = {
+	/**
+	 * Enable or disable WAL mode
+	 * @default false
+	 */
+	enabled: boolean;
+	/**
+	 * Synchronous mode for WAL
+	 * - OFF: No fsync at all (fastest, least safe)
+	 * - NORMAL: Fsync only at checkpoints (2-3x faster than FULL)
+	 * - FULL: Fsync after every write (safest, slowest)
+	 * - EXTRA: Extra durability checks
+	 * @default undefined (SQLite default, usually FULL)
+	 */
+	synchronous?: "OFF" | "NORMAL" | "FULL" | "EXTRA";
+	/**
+	 * Number of pages before automatic WAL checkpoint
+	 * Lower values = more frequent checkpoints = slower writes but smaller WAL files
+	 * Higher values = fewer checkpoints = faster writes but larger WAL files
+	 * @default undefined (SQLite default, usually 1000)
+	 */
+	walAutocheckpoint?: number;
+	/**
+	 * Busy timeout in milliseconds
+	 * How long to wait when database is locked
+	 * @default undefined (will use 5000ms if not specified)
+	 */
+	busyTimeout?: number;
+};
+
+/**
  * Runtime options for BunSqlite adapter
  * These options control how data is converted between SQLite and Prisma formats
  */
@@ -32,13 +66,26 @@ export type PrismaBunSqliteOptions = {
 	 * @default true
 	 */
 	safeIntegers?: boolean;
+	/**
+	 * WAL (Write-Ahead Logging) configuration
+	 * Can be boolean (true = enable with defaults) or detailed config object
+	 * Only applies to file-based databases (:memory: ignores this)
+	 * @default undefined (WAL disabled)
+	 */
+	wal?: boolean | WalConfiguration;
 };
 
 /**
  * Maps SQLite column type declarations to Prisma ColumnType enum
+ * Handles type variants with length specifiers (e.g., VARCHAR(255))
+ * and UNSIGNED modifiers (e.g., INTEGER UNSIGNED)
  */
 function mapDeclType(declType: string): ColumnType | null {
-	switch (declType.toUpperCase()) {
+	// Normalize: uppercase, trim, and remove length specifiers like (255)
+	const normalized = declType.toUpperCase().trim();
+	const baseType = normalized.replace(/\([^)]*\)/g, "").trim();
+
+	switch (baseType) {
 		case "":
 			return null;
 		case "DECIMAL":
@@ -50,6 +97,7 @@ function mapDeclType(declType: string): ColumnType | null {
 		case "NUMERIC":
 		case "REAL":
 			return ColumnTypeEnum.Double;
+		// Integer types (without UNSIGNED)
 		case "TINYINT":
 		case "SMALLINT":
 		case "MEDIUMINT":
@@ -57,10 +105,19 @@ function mapDeclType(declType: string): ColumnType | null {
 		case "INTEGER":
 		case "SERIAL":
 		case "INT2":
+		// Integer types with UNSIGNED modifier
+		case "TINYINT UNSIGNED":
+		case "SMALLINT UNSIGNED":
+		case "MEDIUMINT UNSIGNED":
+		case "INT UNSIGNED":
+		case "INTEGER UNSIGNED": // Used by Prisma's _prisma_migrations table
 			return ColumnTypeEnum.Int32;
+		// BigInt types (without UNSIGNED)
 		case "BIGINT":
 		case "UNSIGNED BIG INT":
 		case "INT8":
+		// BigInt types with UNSIGNED modifier
+		case "BIGINT UNSIGNED":
 			return ColumnTypeEnum.Int64;
 		case "DATETIME":
 		case "TIMESTAMP":
@@ -69,8 +126,10 @@ function mapDeclType(declType: string): ColumnType | null {
 			return ColumnTypeEnum.Time;
 		case "DATE":
 			return ColumnTypeEnum.Date;
+		// Text types (with and without length specifiers)
 		case "TEXT":
 		case "CLOB":
+		case "CHAR": // Added
 		case "CHARACTER":
 		case "VARCHAR":
 		case "VARYING CHARACTER":
@@ -82,6 +141,8 @@ function mapDeclType(declType: string): ColumnType | null {
 			return ColumnTypeEnum.Bytes;
 		case "BOOLEAN":
 			return ColumnTypeEnum.Boolean;
+		// JSON types
+		case "JSON": // Added
 		case "JSONB":
 			return ColumnTypeEnum.Json;
 		default:
@@ -569,33 +630,32 @@ class BunSqliteQueryable {
 
 /**
  * Transaction implementation
+ *
+ * With usePhantomQuery: false, the Prisma engine sends actual COMMIT/ROLLBACK
+ * SQL statements through executeRaw(). These methods only release the mutex lock.
+ *
+ * This matches the official @prisma/adapter-better-sqlite3 implementation.
  */
 class BunSqliteTransaction extends BunSqliteQueryable implements Transaction {
 	constructor(
 		db: Database,
 		readonly options: TransactionOptions,
 		adapterOptions: PrismaBunSqliteOptions | undefined,
-		private onComplete: () => void,
+		private releaseLock: () => void,
 	) {
 		super(db, adapterOptions);
 	}
 
 	async commit(): Promise<void> {
-		try {
-			this.db.run("COMMIT");
-		} finally {
-			this.onComplete();
-		}
+		// With usePhantomQuery: false, Prisma engine sends COMMIT via executeRaw
+		// This method just releases the transaction lock
+		this.releaseLock();
 	}
 
 	async rollback(): Promise<void> {
-		try {
-			this.db.run("ROLLBACK");
-		} catch (error) {
-			// Ignore rollback errors
-		} finally {
-			this.onComplete();
-		}
+		// With usePhantomQuery: false, Prisma engine sends ROLLBACK via executeRaw
+		// This method just releases the transaction lock
+		this.releaseLock();
 	}
 }
 
@@ -660,6 +720,9 @@ export class BunSqliteAdapter extends BunSqliteQueryable implements SqlDriverAda
 	/**
 	 * Start a new transaction
 	 * Transactions are automatically serialized via mutex - concurrent calls will wait
+	 *
+	 * Uses usePhantomQuery: false (like official better-sqlite3 adapter)
+	 * This means Prisma engine sends COMMIT/ROLLBACK through executeRaw()
 	 */
 	async startTransaction(isolationLevel?: IsolationLevel): Promise<Transaction> {
 		// SQLite only supports SERIALIZABLE isolation level
@@ -675,18 +738,13 @@ export class BunSqliteAdapter extends BunSqliteQueryable implements SqlDriverAda
 
 		try {
 			// Begin transaction
-			this.db.run("BEGIN DEFERRED");
+			this.db.run("BEGIN");
 
 			const options: TransactionOptions = {
-				usePhantomQuery: true,
+				usePhantomQuery: false, // Match official better-sqlite3 adapter
 			};
 
-			const onComplete = () => {
-				// Release lock when transaction completes (commit or rollback)
-				releaseLock();
-			};
-
-			return new BunSqliteTransaction(this.db, options, this.adapterOptions, onComplete);
+			return new BunSqliteTransaction(this.db, options, this.adapterOptions, releaseLock);
 		} catch (error: any) {
 			// Release lock on error
 			releaseLock();
@@ -765,16 +823,71 @@ export class PrismaBunSqlite implements SqlMigrationAwareDriverAdapterFactory {
 		// Enable foreign key constraints (required for cascading deletes)
 		db.run("PRAGMA foreign_keys = ON");
 
-		// Set busy timeout to handle locked database (5 seconds)
-		db.run("PRAGMA busy_timeout = 5000");
-
-		// Enable WAL mode for better concurrency and performance
-		// Note: WAL mode is not available for :memory: databases
+		// Configure WAL mode if specified (only for file-based databases)
 		if (dbPath !== ":memory:") {
-			db.run("PRAGMA journal_mode = WAL");
+			this.configureWalMode(db);
 		}
 
 		return db;
+	}
+
+	/**
+	 * Configure WAL (Write-Ahead Logging) mode
+	 * Only applies to file-based databases
+	 */
+	private configureWalMode(db: Database): void {
+		const walConfig = this.config.wal;
+
+		// If wal not specified or explicitly disabled, skip WAL configuration
+		if (!walConfig) {
+			// Set default busy timeout even without WAL
+			db.run("PRAGMA busy_timeout = 5000");
+			return;
+		}
+
+		// Normalize config: boolean true -> {enabled: true}, object -> as-is
+		const config: WalConfiguration =
+			typeof walConfig === "boolean" ? { enabled: walConfig } : walConfig;
+
+		// If explicitly disabled, skip
+		if (!config.enabled) {
+			// Set default busy timeout even without WAL
+			db.run("PRAGMA busy_timeout = 5000");
+			return;
+		}
+
+		// Enable WAL mode
+		try {
+			const result = db.prepare("PRAGMA journal_mode = WAL").get() as
+				| { journal_mode: string }
+				| undefined;
+			const currentMode = result?.journal_mode?.toLowerCase();
+
+			// Check if WAL was successfully enabled
+			if (currentMode !== "wal") {
+				throw new Error(`Failed to enable WAL mode. Current mode: ${currentMode || "unknown"}`);
+			}
+		} catch (error: any) {
+			throw new DriverAdapterError({
+				kind: "GenericJs",
+				id: 0,
+				originalMessage: `Failed to enable WAL mode: ${error.message}`,
+			});
+		}
+
+		// Configure synchronous mode if specified
+		if (config.synchronous) {
+			db.run(`PRAGMA synchronous = ${config.synchronous}`);
+		}
+
+		// Configure WAL autocheckpoint if specified
+		if (config.walAutocheckpoint !== undefined) {
+			db.run(`PRAGMA wal_autocheckpoint = ${config.walAutocheckpoint}`);
+		}
+
+		// Configure busy timeout (use specified value or default 5000ms)
+		const busyTimeout = config.busyTimeout ?? 5000;
+		db.run(`PRAGMA busy_timeout = ${busyTimeout}`);
 	}
 
 	/**
