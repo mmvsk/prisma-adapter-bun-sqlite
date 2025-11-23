@@ -199,6 +199,25 @@ Total: 131 tests
 4. **SERIALIZABLE only** - SQLite's only isolation level
 5. **Undocumented Bun APIs** - `stmt.columnNames`/`stmt.declaredTypes` (works reliably)
 
+## Non-Goals
+
+### Connection Pooling
+
+Connection pooling is a **non-goal by design**.
+
+**Why it wouldn't help:**
+- SQLite allows only one writer regardless of connection count
+- `bun:sqlite` is synchronous at the native level
+- JavaScript is single-threaded, so queries execute one-at-a-time in the event loop
+- Multiple connections would add overhead with no concurrency gain
+
+**Recommended architecture instead:**
+Use two separate PrismaClient instances:
+1. **Write client** - behind a sequential queue, ensuring one write operation at a time
+2. **Read client** - for queries only, doesn't compete for write locks
+
+This pattern correctly matches SQLite's single-writer/multiple-reader model without the complexity of connection pooling.
+
 ## References
 
 - [Bun SQLite API](https://bun.sh/docs/api/sqlite)

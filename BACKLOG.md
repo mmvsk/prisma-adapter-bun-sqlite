@@ -14,12 +14,6 @@ Before declaring 1.0.0:
 
 ## Future Considerations
 
-### Connection Pooling
-
-**Why**: Better performance under high concurrency
-**Challenge**: SQLite is single-writer, pooling less beneficial
-**Decision**: Wait for use case
-
 ### Encryption Support (SQLCipher)
 
 **Why**: Encrypted database files
