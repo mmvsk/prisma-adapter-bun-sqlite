@@ -15,7 +15,7 @@ Reliable, fast, zero-dependency Prisma adapter for Bun's native SQLite.
 - **Zero dependencies** - Uses Bun's native `bun:sqlite`, no Node.js packages or native binaries
 - **Programmatic migrations** - Run migrations from TypeScript, perfect for `:memory:` testing
 - **Single binary deployment** - Works with `bun build --compile`, embed migrations in your executable
-- **Fastest** - [faster than alternatives](https://github.com/mmvsk/benchmark-prisma-sqlite-adapter) with 100% correctness
+- **Fastest** - [faster than alternatives](https://github.com/mmvsk/prisma-adapter-bun-sqlite-benchmark) with 100% correctness
 
 ## Installation
 
