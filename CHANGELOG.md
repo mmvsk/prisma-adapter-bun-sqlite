@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.5.6] - 2025-11-25
+
+### Fixed
+
+- **Bun 1.3.3 Compatibility** - Fixed breaking change in Bun 1.3.3+ where `stmt.declaredTypes` and `stmt.columnNames` require execution before access. The adapter now handles both pre-execution (Bun < 1.3.0) and post-execution (Bun 1.3.3+) metadata access patterns.
+- **Pragma Query Type Inference** - Fixed incorrect type detection for pragma queries (e.g., `PRAGMA journal_mode`) where `columnTypes` throws "not available for non-read-only statements". The adapter now falls back to value-based type inference when metadata is unavailable, correctly detecting text values instead of defaulting to Int32.
+
+### Added
+
+- **Value-based Type Inference** - New `inferTypeFromValue()` function in `conversion.ts` to infer column types from actual values when both `declaredTypes` and `runtimeTypes` are unavailable (used for pragmas and edge cases in Bun 1.3.3+).
+
+### Technical Details
+
+- Enhanced `queryRaw()` to wrap metadata access in try-catch and retrieve metadata after execution if pre-execution access fails
+- Updated `getColumnTypes()` to accept optional `values` parameter for type inference fallback
+- All 136 tests continue to pass with both Bun 1.3.3 and earlier versions
+
+---
+
 ## [0.5.5] - 2025-11-24
 
 ### Changed

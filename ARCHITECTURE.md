@@ -100,16 +100,25 @@ We use Bun's Statement metadata APIs (available since Bun 1.2.17):
 
 | API | Availability | Returns | Use Case |
 |-----|--------------|---------|----------|
-| `stmt.columnNames` | Pre-execution | `string[]` | Column names for result mapping |
-| `stmt.declaredTypes` | Pre-execution | `(string \| null)[]` | Schema types (e.g., "INTEGER", "TEXT") |
+| `stmt.columnNames` | Pre-execution (< 1.3.0)<br>Post-execution (1.3.3+) | `string[]` | Column names for result mapping |
+| `stmt.declaredTypes` | Pre-execution (< 1.3.0)<br>Post-execution (1.3.3+) | `(string \| null)[]` | Schema types (e.g., "INTEGER", "TEXT") |
 | `stmt.columnTypes` | Post-execution | `(string \| null)[]` | Runtime types for computed columns |
+
+**Bun 1.3.3 Breaking Change:**
+Bun 1.3.3 changed metadata access to require statement execution first. The adapter handles both patterns:
+- **Bun < 1.3.0**: Access metadata pre-execution, execute with `stmt.values()`
+- **Bun 1.3.3+**: Execute first with `stmt.values()`, then access metadata
 
 **Type resolution priority:**
 1. `declaredTypes` - Schema-based types (more specific: DATE vs DATETIME)
 2. `columnTypes` - Runtime types for computed columns (COUNT, expressions)
-3. Default to `Int32` as fallback
+3. **Value inference** - Infer from actual values when metadata unavailable (pragmas, edge cases)
+4. Default to `Int32` as fallback
 
-**Caveat:** `stmt.columnTypes` throws for non-read-only statements (INSERT/UPDATE/DELETE with RETURNING). We handle this with a try-catch fallback to declared types only.
+**Caveats:**
+- `stmt.columnTypes` throws for non-read-only statements (INSERT/UPDATE/DELETE with RETURNING) and some pragmas (e.g., `PRAGMA journal_mode`)
+- When both declared and runtime types are unavailable, we infer from the first row's actual values
+- We handle this with a try-catch and value-based type inference fallback
 
 **Why `stmt.values()` instead of `stmt.all()`:**
 - `stmt.all()` returns objects → duplicate column names (JOINs) cause data loss

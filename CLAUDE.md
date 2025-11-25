@@ -11,7 +11,13 @@ Reliable, fast, zero-dependency Prisma adapter for Bun's native SQLite.
 
 ## Project Status
 
-**v0.5.5** - 136/136 tests passing
+**v0.5.6** - 136/136 tests passing
+
+## Compatibility
+
+- **Bun**: 1.3.0+ (tested with 1.3.3)
+- **Prisma**: 7.0+
+- **Breaking Change in Bun 1.3.3**: Statement metadata access pattern changed (now requires execution first). The adapter automatically handles both old and new patterns.
 
 ## File Structure
 
@@ -52,6 +58,7 @@ tests/
 | `mapArg()` | `conversion.ts` | Prisma → SQLite args |
 | `mapRow()` | `conversion.ts` | SQLite → Prisma rows |
 | `getColumnTypes()` | `conversion.ts` | Column type detection |
+| `inferTypeFromValue()` | `conversion.ts` | Infer type from value (fallback) |
 | `convertDriverError()` | `errors.ts` | SQLite → Prisma errors |
 | `runMigrations()` | `migration.ts` | Apply migrations |
 | `createTestDatabase()` | `migration.ts` | :memory: DB with migrations |

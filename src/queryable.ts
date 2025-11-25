@@ -51,15 +51,25 @@ export class BunSqliteQueryable {
 			// Use db.query() which caches compiled statements (vs db.prepare() which recompiles every time)
 			const stmt = this.db.query(query.sql);
 
-			// Get column metadata first to determine if this is a returning query
-			// These properties are available pre-execution (Bun 1.2.17+)
-			const columnNames = stmt.columnNames?.slice() ?? [];
-			const declaredTypes = stmt.declaredTypes?.slice() ?? [];
+			// Try to get column metadata pre-execution (available in Bun < 1.3.0)
+			// In Bun 1.3.3+, these require execution first
+			let columnNames: string[] = [];
+			let declaredTypes: (string | null)[] = [];
+			let metadataAvailablePreExecution = false;
+
+			try {
+				columnNames = stmt.columnNames?.slice() ?? [];
+				declaredTypes = stmt.declaredTypes?.slice() ?? [];
+				metadataAvailablePreExecution = true;
+			} catch {
+				// Metadata not available pre-execution (Bun 1.3.3+)
+				// We'll get it after execution
+			}
 
 			// Check if this query returns columns (SELECT, INSERT...RETURNING, etc.)
 			// If no columns, use stmt.run() to get lastInsertRowid
 			// If columns exist, use stmt.values() to get row data
-			if (columnNames.length === 0) {
+			if (metadataAvailablePreExecution && columnNames.length === 0) {
 				// Non-returning statement (INSERT, UPDATE, DELETE without RETURNING)
 				// Use stmt.run() which returns { changes, lastInsertRowid }
 				const result = stmt.run(...(args as any));
@@ -78,6 +88,21 @@ export class BunSqliteQueryable {
 			// stmt.all() returns objects which lose duplicate keys, causing data corruption.
 			// stmt.values() returns arrays preserving all columns in order.
 			const rowArrays = stmt.values(...(args as SQLQueryBindings[])) ?? [];
+
+			// Get metadata after execution if not available before (Bun 1.3.3+)
+			if (!metadataAvailablePreExecution) {
+				try {
+					columnNames = stmt.columnNames?.slice() ?? [];
+					declaredTypes = stmt.declaredTypes?.slice() ?? [];
+				} catch {
+					// Still can't get metadata, use defaults
+					const firstRow = rowArrays[0];
+					if (firstRow) {
+						columnNames = firstRow.map((_, i) => `column_${i}`);
+						declaredTypes = firstRow.map(() => null);
+					}
+				}
+			}
 
 			// Handle column count mismatch due to duplicate names
 			// Only needed for queries with JOINs that have duplicate column names
@@ -103,16 +128,17 @@ export class BunSqliteQueryable {
 
 			// Get runtime column types (available after execution, Bun 1.2.17+)
 			// This provides actual types for computed columns (COUNT, expressions, etc.)
-			// Note: columnTypes throws for non-read-only statements (INSERT...RETURNING, etc.)
+			// Note: columnTypes throws for non-read-only statements (INSERT...RETURNING, etc.) and pragmas
 			let runtimeTypes: (string | null)[] = [];
 			try {
 				runtimeTypes = stmt.columnTypes?.slice() ?? [];
 			} catch {
-				// columnTypes not available for INSERT/UPDATE/DELETE with RETURNING
+				// columnTypes not available for INSERT/UPDATE/DELETE with RETURNING or certain pragmas
 			}
 
 			// Get column types, using runtime types for computed columns
-			const columnTypes = getColumnTypes(declaredTypes, runtimeTypes);
+			// Pass first row for type inference when metadata is unavailable (e.g., pragmas in Bun 1.3.3+)
+			const columnTypes = getColumnTypes(declaredTypes, runtimeTypes, firstRow);
 
 			// If no results, return empty set with column metadata
 			if (rowArrays.length === 0) {

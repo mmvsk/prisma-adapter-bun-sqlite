@@ -51,7 +51,7 @@ datasource db {
 import { PrismaClient } from "./path/to/prisma/generated/client";
 import { PrismaBunSqlite } from "prisma-adapter-bun-sqlite";
 
-const adapter = new PrismaBunSqlite({ url: "file:./dev.db" });
+const adapter = new PrismaBunSqlite({ url: "file:./path/to/db.sqlite" });
 const prisma = new PrismaClient({ adapter });
 
 const users = await prisma.user.findMany();
@@ -61,7 +61,7 @@ const users = await prisma.user.findMany();
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `url` | `string` | required | Database path (`file:./dev.db`) or `:memory:` |
+| `url` | `string` | required | Database path (`file:./path/to/db.sqlite`) or `:memory:` |
 | `shadowDatabaseUrl` | `string` | `":memory:"` | Shadow DB for migrations |
 | `safeIntegers` | `boolean` | `true` | Prevent precision loss for BigInt |
 | `timestampFormat` | `"iso8601"` \| `"unixepoch-ms"` | `"iso8601"` | DateTime storage format |
@@ -70,7 +70,7 @@ const users = await prisma.user.findMany();
 ```typescript
 // Production configuration with WAL
 const adapter = new PrismaBunSqlite({
-  url: "file:./prod.db",
+  url: "file:./path/to/db.sqlite",
   safeIntegers: true,
   timestampFormat: "iso8601",
   shadowDatabaseUrl: ":memory:",
@@ -144,7 +144,7 @@ import {
 
 // Option 1: Load from filesystem
 const migrations = await loadMigrationsFromDir("./prisma/migrations");
-const factory = new PrismaBunSqlite({ url: "file:./app.db" });
+const factory = new PrismaBunSqlite({ url: "file:./path/to/db.sqlite" });
 const adapter = await factory.connect();
 await runMigrations(adapter, migrations);
 
@@ -169,7 +169,7 @@ const migrations = [
   { name: "001_init", sql: "CREATE TABLE users (id INTEGER PRIMARY KEY);" }
 ];
 
-const factory = new PrismaBunSqlite({ url: "file:./app.db" });
+const factory = new PrismaBunSqlite({ url: "file:./path/to/db.sqlite" });
 const adapter = await factory.connect();
 await runMigrations(adapter, migrations, { logger: () => {} });
 

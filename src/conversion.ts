@@ -106,10 +106,12 @@ export function mapRuntimeType(runtimeType: string | null): ColumnType | null {
  * Gets column types array from declarations, using runtime types for computed columns
  * @param declaredTypes - Schema-based types from stmt.declaredTypes (null for computed columns)
  * @param runtimeTypes - Runtime types from stmt.columnTypes (available after execution)
+ * @param values - Optional first row values to infer types when metadata unavailable
  */
 export function getColumnTypes(
 	declaredTypes: (string | null)[],
 	runtimeTypes: (string | null)[],
+	values?: unknown[],
 ): ColumnType[] {
 	return declaredTypes.map((declType, index) => {
 		// First try declared type (more specific: DATE vs DATETIME, etc.)
@@ -125,9 +127,43 @@ export function getColumnTypes(
 			if (mappedRuntime !== null) return mappedRuntime;
 		}
 
+		// If we have actual values, infer type from value
+		// This handles pragmas and edge cases where metadata is unavailable
+		if (values && index < values.length) {
+			const value = values[index];
+			const inferredType = inferTypeFromValue(value);
+			if (inferredType !== null) return inferredType;
+		}
+
 		// Default fallback
 		return ColumnTypeEnum.Int32;
 	});
+}
+
+/**
+ * Infers column type from an actual value
+ * Used when both declaredTypes and runtimeTypes are unavailable
+ */
+function inferTypeFromValue(value: unknown): ColumnType | null {
+	if (value === null || value === undefined) return null;
+
+	if (typeof value === "bigint") {
+		return ColumnTypeEnum.Int64;
+	}
+	if (typeof value === "number") {
+		return Number.isInteger(value) ? ColumnTypeEnum.Int32 : ColumnTypeEnum.Double;
+	}
+	if (typeof value === "string") {
+		return ColumnTypeEnum.Text;
+	}
+	if (value instanceof Uint8Array || value instanceof ArrayBuffer || Buffer.isBuffer(value)) {
+		return ColumnTypeEnum.Bytes;
+	}
+	if (typeof value === "boolean") {
+		return ColumnTypeEnum.Boolean;
+	}
+
+	return null;
 }
 
 /**
