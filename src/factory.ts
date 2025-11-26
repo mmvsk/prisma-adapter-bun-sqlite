@@ -120,19 +120,43 @@ export class PrismaBunSqlite implements SqlMigrationAwareDriverAdapterFactory {
 			});
 		}
 
-		// Configure synchronous mode if specified
+		// Configure synchronous mode if specified (with validation)
 		if (config.synchronous) {
+			const validModes = ["OFF", "NORMAL", "FULL", "EXTRA"] as const;
+			if (!validModes.includes(config.synchronous)) {
+				throw new DriverAdapterError({
+					kind: "GenericJs",
+					id: 0,
+					originalMessage: `Invalid synchronous mode: ${config.synchronous}. Valid modes: ${validModes.join(", ")}`,
+				});
+			}
 			db.run(`PRAGMA synchronous = ${config.synchronous}`);
 		}
 
-		// Configure WAL autocheckpoint if specified
+		// Configure WAL autocheckpoint if specified (with validation)
 		if (config.walAutocheckpoint !== undefined) {
-			db.run(`PRAGMA wal_autocheckpoint = ${config.walAutocheckpoint}`);
+			const checkpoint = Number(config.walAutocheckpoint);
+			if (!Number.isInteger(checkpoint) || checkpoint < 0) {
+				throw new DriverAdapterError({
+					kind: "GenericJs",
+					id: 0,
+					originalMessage: `Invalid walAutocheckpoint: ${config.walAutocheckpoint}. Must be a non-negative integer.`,
+				});
+			}
+			db.run(`PRAGMA wal_autocheckpoint = ${checkpoint}`);
 		}
 
-		// Configure busy timeout (use specified value or default 5000ms)
+		// Configure busy timeout (use specified value or default 5000ms, with validation)
 		const busyTimeout = config.busyTimeout ?? 5000;
-		db.run(`PRAGMA busy_timeout = ${busyTimeout}`);
+		const timeout = Number(busyTimeout);
+		if (!Number.isInteger(timeout) || timeout < 0) {
+			throw new DriverAdapterError({
+				kind: "GenericJs",
+				id: 0,
+				originalMessage: `Invalid busyTimeout: ${busyTimeout}. Must be a non-negative integer.`,
+			});
+		}
+		db.run(`PRAGMA busy_timeout = ${timeout}`);
 	}
 
 	/**

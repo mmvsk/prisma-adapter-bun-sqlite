@@ -9,7 +9,7 @@ This adapter implements Prisma's `SqlDriverAdapter` interface for Bun's native `
 **Goals:**
 1. Zero dependencies - only Bun's native APIs
 3. Production-ready - proper error handling, type conversions, defensive defaults
-2. Battle-tested - 136 tests including official Prisma scenarios
+2. Battle-tested - 135 tests including official Prisma scenarios
 4. Fast - leverage Bun's native performance
 
 ## File Structure
@@ -96,23 +96,24 @@ async startTransaction(): Promise<Transaction> {
 
 ### Column Type Detection
 
-We use Bun's Statement metadata APIs (available since Bun 1.2.17):
+We use Bun's Statement metadata APIs (requires Bun 1.3.3+):
 
 | API | Availability | Returns | Use Case |
 |-----|--------------|---------|----------|
-| `stmt.columnNames` | Pre-execution (< 1.3.0)<br>Post-execution (1.3.3+) | `string[]` | Column names for result mapping |
-| `stmt.declaredTypes` | Pre-execution (< 1.3.0)<br>Post-execution (1.3.3+) | `(string \| null)[]` | Schema types (e.g., "INTEGER", "TEXT") |
+| `stmt.columnNames` | Post-execution | `string[]` | Column names for result mapping |
+| `stmt.declaredTypes` | Post-execution | `(string \| null)[]` | Schema types (e.g., "INTEGER", "TEXT") |
 | `stmt.columnTypes` | Post-execution | `(string \| null)[]` | Runtime types for computed columns |
 
-**Bun 1.3.3 Breaking Change:**
-Bun 1.3.3 changed metadata access to require statement execution first. The adapter handles both patterns:
-- **Bun < 1.3.0**: Access metadata pre-execution, execute with `stmt.values()`
-- **Bun 1.3.3+**: Execute first with `stmt.values()`, then access metadata
+**Bun 1.3.3+ Pattern:**
+As of Bun 1.3.3, statement metadata is only available after execution. The adapter:
+1. Executes the query with `stmt.values()`
+2. Accesses `stmt.columnNames` and `stmt.declaredTypes` after execution
+3. Falls back to value-based type inference if metadata is unavailable
 
 **Type resolution priority:**
 1. `declaredTypes` - Schema-based types (more specific: DATE vs DATETIME)
 2. `columnTypes` - Runtime types for computed columns (COUNT, expressions)
-3. **Value inference** - Infer from actual values when metadata unavailable (pragmas, edge cases)
+3. **Value inference** - Infer from actual values when metadata unavailable (pragmas, edge cases). Uses `UnknownNumber` for numeric values to match official adapter.
 4. Default to `Int32` as fallback
 
 **Caveats:**
@@ -146,7 +147,7 @@ We set defensive defaults that official adapters don't:
 | Column retrieval | `stmt.all()` + `stmt.columns()` | `stmt.values()` + metadata |
 | Safe integers | Opt-in | **Default on** |
 | FK constraints | Off | **On** |
-| `lastInsertId` | Not returned | **Returned** |
+| `lastInsertId` | Not returned | Not returned |
 
 ### vs Official Rust Engine (quaint)
 
@@ -182,9 +183,9 @@ tests/
 ├── migrations.test.ts        # Migration utilities (12 tests)
 ├── shadow-database.test.ts   # Shadow DB support (9 tests)
 ├── wal-and-types.test.ts     # WAL + type tests (18 tests)
-└── official-scenarios.test.ts # Prisma official scenarios (40 tests)
+└── official-scenarios.test.ts # Prisma official scenarios (39 tests)
 
-Total: 136 tests
+Total: 135 tests
 ```
 
 **Test sources:**
@@ -196,10 +197,11 @@ Total: 136 tests
 ## Known Limitations
 
 1. **Bun only** - Uses `bun:sqlite` native API
-2. **Bun 1.2.17+** - Requires `stmt.declaredTypes`/`stmt.columnTypes` (added in 1.2.17)
+2. **Bun 1.3.3+** - Requires Bun 1.3.3+ for post-execution metadata access
 3. **Local only** - No network support (use libsql for Turso)
 4. **Single writer** - SQLite limitation, mitigated by AsyncMutex
 5. **SERIALIZABLE only** - SQLite's only isolation level
+6. **No lastInsertId** - Use `INSERT...RETURNING id` to get inserted IDs
 
 ## Non-Goals
 

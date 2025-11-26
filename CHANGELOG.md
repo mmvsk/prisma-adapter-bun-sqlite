@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.0] - 2025-11-26
+
+### Breaking Changes
+
+- **BREAKING**: Minimum Bun version increased to **1.3.3** (was 1.3.0)
+  - This simplifies the codebase by removing compatibility code for older Bun versions
+  - Bun 1.3.3+ changed statement metadata access to require execution first
+
+- **BREAKING**: `lastInsertId` is no longer returned for INSERT queries without RETURNING
+  - This was a feature beyond the official adapter's capabilities
+  - The official `@prisma/adapter-better-sqlite3` also doesn't return `lastInsertId`
+  - **Migration**: Use `INSERT...RETURNING id` to get the inserted ID
+
+### Fixed
+
+- **Type Inference** - Fixed `inferTypeFromValue()` to return `UnknownNumber` for numeric values (matching official better-sqlite3 adapter). Previously returned `Int32` or `Double` based on `Number.isInteger()`, which could cause incorrect type handling.
+
+- **Transaction Safety** - Improved error handling in `startTransaction()` to rollback the transaction if the transaction object constructor fails after `BEGIN`.
+
+- **Dispose Safety** - `dispose()` now waits for any active transaction to complete before closing the database, preventing potential data corruption.
+
+- **Error Handling** - Unrecognized errors are now wrapped in `GenericJs` error format instead of being re-thrown. This provides consistent error handling for both SQLite errors and internal bugs.
+
+### Added
+
+- **PRAGMA Validation** - Runtime validation for WAL configuration values:
+  - `synchronous` must be one of: OFF, NORMAL, FULL, EXTRA
+  - `walAutocheckpoint` must be a non-negative integer
+  - `busyTimeout` must be a non-negative integer
+  - Invalid values now throw descriptive errors instead of potentially corrupting configuration
+
+- **Mutex Queue Size Limit** - `AsyncMutex` now has a configurable queue size limit (default: 1000) to prevent unbounded memory growth under extreme concurrency. Throws a descriptive error when the queue is full.
+
+### Changed
+
+- **Simplified Codebase** - Removed Bun < 1.3.3 compatibility code from `queryRaw()`. Now uses the Bun 1.3.3+ pattern of getting metadata after execution.
+
+- **135 tests** (was 136) - Removed `lastInsertId` test since feature is no longer supported
+
+### Technical Details
+
+- Code reviewed by Claude Opus 4.5 for bugs, improvements, and alignment with official Prisma better-sqlite3 adapter
+- Codebase is now cleaner and more maintainable with consistent Bun 1.3.3+ patterns
+
+---
+
 ## [0.5.6] - 2025-11-25
 
 ### Fixed

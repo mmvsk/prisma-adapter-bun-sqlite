@@ -951,39 +951,9 @@ describe("Official Prisma SQLite Scenarios", () => {
 		});
 	});
 
-	describe("lastInsertId", () => {
-		test("returns lastInsertId for INSERT without RETURNING", async () => {
-			const adapter = new PrismaBunSqlite({ url: ":memory:" });
-			const connection = await adapter.connect();
-
-			await connection.executeScript(`
-				CREATE TABLE users (
-					id INTEGER PRIMARY KEY NOT NULL,
-					name TEXT
-				);
-			`);
-
-			// First insert
-			const result1 = await connection.queryRaw({
-				sql: "INSERT INTO users (name) VALUES (?)",
-				args: ["Alice"],
-				argTypes: [{ arity: "scalar", scalarType: "string" }],
-			});
-
-			expect(result1.lastInsertId).toBe("1");
-
-			// Second insert
-			const result2 = await connection.queryRaw({
-				sql: "INSERT INTO users (name) VALUES (?)",
-				args: ["Bob"],
-				argTypes: [{ arity: "scalar", scalarType: "string" }],
-			});
-
-			expect(result2.lastInsertId).toBe("2");
-
-			await connection.dispose();
-		});
-	});
+	// Note: lastInsertId is no longer supported in Bun 1.3.3+
+	// The official better-sqlite3 adapter also doesn't return lastInsertId
+	// Use INSERT...RETURNING if you need the inserted ID
 
 	/**
 	 * Edge Case Tests (ported from prisma-engines/quaint)

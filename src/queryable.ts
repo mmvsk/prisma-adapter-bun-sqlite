@@ -35,6 +35,8 @@ export class BunSqliteQueryable {
 
 	/**
 	 * Execute a query and return the result set
+	 *
+	 * Note: Requires Bun 1.3.3+ where statement metadata is available after execution.
 	 */
 	async queryRaw(query: SqlQuery): Promise<SqlResultSet> {
 		const tag = "[js::queryRaw]";
@@ -51,82 +53,50 @@ export class BunSqliteQueryable {
 			// Use db.query() which caches compiled statements (vs db.prepare() which recompiles every time)
 			const stmt = this.db.query(query.sql);
 
-			// Try to get column metadata pre-execution (available in Bun < 1.3.0)
-			// In Bun 1.3.3+, these require execution first
-			let columnNames: string[] = [];
-			let declaredTypes: (string | null)[] = [];
-			let metadataAvailablePreExecution = false;
-
-			try {
-				columnNames = stmt.columnNames?.slice() ?? [];
-				declaredTypes = stmt.declaredTypes?.slice() ?? [];
-				metadataAvailablePreExecution = true;
-			} catch {
-				// Metadata not available pre-execution (Bun 1.3.3+)
-				// We'll get it after execution
-			}
-
-			// Check if this query returns columns (SELECT, INSERT...RETURNING, etc.)
-			// If no columns, use stmt.run() to get lastInsertRowid
-			// If columns exist, use stmt.values() to get row data
-			if (metadataAvailablePreExecution && columnNames.length === 0) {
-				// Non-returning statement (INSERT, UPDATE, DELETE without RETURNING)
-				// Use stmt.run() which returns { changes, lastInsertRowid }
-				const result = stmt.run(...(args as any));
-				return {
-					columnNames: [],
-					columnTypes: [],
-					rows: [],
-					// Include lastInsertId for non-returning statements
-					// This matches libsql adapter behavior
-					lastInsertId: String(result.lastInsertRowid),
-				};
-			}
-
 			// IMPORTANT: Use stmt.values() instead of stmt.all() to preserve column order
 			// When queries have duplicate column names (e.g., SELECT u.id, p.id),
 			// stmt.all() returns objects which lose duplicate keys, causing data corruption.
 			// stmt.values() returns arrays preserving all columns in order.
 			const rowArrays = stmt.values(...(args as SQLQueryBindings[])) ?? [];
 
-			// Get metadata after execution if not available before (Bun 1.3.3+)
-			if (!metadataAvailablePreExecution) {
-				try {
-					columnNames = stmt.columnNames?.slice() ?? [];
-					declaredTypes = stmt.declaredTypes?.slice() ?? [];
-				} catch {
-					// Still can't get metadata, use defaults
-					const firstRow = rowArrays[0];
-					if (firstRow) {
-						columnNames = firstRow.map((_, i) => `column_${i}`);
-						declaredTypes = firstRow.map(() => null);
+			// Get metadata after execution (Bun 1.3.3+ pattern)
+			let columnNames: string[] = [];
+			let declaredTypes: (string | null)[] = [];
+			try {
+				columnNames = stmt.columnNames?.slice() ?? [];
+				declaredTypes = stmt.declaredTypes?.slice() ?? [];
+			} catch {
+				// Metadata not available (edge case), use defaults from first row
+				const firstRow = rowArrays[0];
+				if (firstRow) {
+					columnNames = firstRow.map((_, i) => `column_${i}`);
+					declaredTypes = firstRow.map(() => null);
+				}
+			}
+
+			// Handle column count mismatch due to duplicate names in JOINs
+			const firstRow = rowArrays[0];
+			if (firstRow && firstRow.length !== columnNames.length) {
+				const actualColumnCount = Math.max(
+					declaredTypes.length,
+					firstRow.length,
+					columnNames.length,
+				);
+
+				if (columnNames.length < actualColumnCount) {
+					for (let i = columnNames.length; i < actualColumnCount; i++) {
+						columnNames.push(`column_${i}`);
+					}
+				}
+
+				if (declaredTypes.length < actualColumnCount) {
+					for (let i = declaredTypes.length; i < actualColumnCount; i++) {
+						declaredTypes.push(null);
 					}
 				}
 			}
 
-			// Handle column count mismatch due to duplicate names
-			// Only needed for queries with JOINs that have duplicate column names
-			// Skip this expensive check for simple queries
-			const firstRow = rowArrays[0];
-			const actualColumnCount = Math.max(
-				declaredTypes.length,
-				firstRow ? firstRow.length : 0,
-				columnNames.length,
-			);
-
-			if (columnNames.length < actualColumnCount) {
-				for (let i = columnNames.length; i < actualColumnCount; i++) {
-					columnNames.push(`column_${i}`);
-				}
-			}
-
-			if (declaredTypes.length < actualColumnCount) {
-				for (let i = declaredTypes.length; i < actualColumnCount; i++) {
-					declaredTypes.push(null);
-				}
-			}
-
-			// Get runtime column types (available after execution, Bun 1.2.17+)
+			// Get runtime column types (available after execution)
 			// This provides actual types for computed columns (COUNT, expressions, etc.)
 			// Note: columnTypes throws for non-read-only statements (INSERT...RETURNING, etc.) and pragmas
 			let runtimeTypes: (string | null)[] = [];
@@ -137,7 +107,7 @@ export class BunSqliteQueryable {
 			}
 
 			// Get column types, using runtime types for computed columns
-			// Pass first row for type inference when metadata is unavailable (e.g., pragmas in Bun 1.3.3+)
+			// Pass first row for type inference when metadata is unavailable (e.g., pragmas)
 			const columnTypes = getColumnTypes(declaredTypes, runtimeTypes, firstRow);
 
 			// If no results, return empty set with column metadata
@@ -156,8 +126,6 @@ export class BunSqliteQueryable {
 				columnNames,
 				columnTypes,
 				rows: mappedRows,
-				// Don't include lastInsertId for SELECT queries or INSERT with RETURNING
-				// as the data is already in the rows
 			};
 		} catch (error: any) {
 			throw new DriverAdapterError(convertDriverError(error));

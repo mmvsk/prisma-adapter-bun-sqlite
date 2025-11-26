@@ -50,9 +50,14 @@ export const SQLITE_ERROR_MAP: Record<number, string> = {
  * - Constraint errors: { errno: 2067, message: "...", code: "SQLITE_CONSTRAINT_UNIQUE" }
  */
 export function convertDriverError(error: any): any {
-	// Bun SQLite errors have either .code (constraint violations) or .errno (other errors)
+	// Handle non-SQLite errors (e.g., internal bugs, TypeErrors)
+	// Wrap them in a generic error format for consistency
 	if (!error?.message || (typeof error?.code !== "string" && typeof error?.errno !== "number")) {
-		throw error;
+		return {
+			kind: "GenericJs",
+			id: 0,
+			originalMessage: String(error?.message || error || "Unknown error"),
+		};
 	}
 
 	const message = error.message;
@@ -134,7 +139,12 @@ export function convertDriverError(error: any): any {
 				};
 			}
 
-			// Unrecognized error - rethrow
-			throw error;
+			// Unrecognized SQLite error - wrap in GenericJs for consistent error handling
+			return {
+				kind: "GenericJs",
+				id: 0,
+				originalCode: code,
+				originalMessage: message,
+			};
 	}
 }

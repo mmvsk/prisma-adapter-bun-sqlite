@@ -21,6 +21,7 @@ import { AsyncMutex, BunSqliteTransaction } from "./transaction.js";
  */
 export class BunSqliteAdapter extends BunSqliteQueryable implements SqlDriverAdapter {
 	private transactionMutex = new AsyncMutex();
+	private disposed = false;
 
 	constructor(db: Database, adapterOptions?: PrismaBunSqliteOptions) {
 		super(db, adapterOptions);
@@ -67,9 +68,20 @@ export class BunSqliteAdapter extends BunSqliteQueryable implements SqlDriverAda
 			// Begin transaction
 			this.db.run("BEGIN");
 
-			return new BunSqliteTransaction(this.db, options, this.adapterOptions, releaseLock);
+			// Create transaction object - if this fails, rollback to clean up
+			try {
+				return new BunSqliteTransaction(this.db, options, this.adapterOptions, releaseLock);
+			} catch (constructorError: any) {
+				// Transaction object creation failed - rollback the begun transaction
+				try {
+					this.db.run("ROLLBACK");
+				} catch {
+					// Ignore rollback errors - we're already in error state
+				}
+				throw constructorError;
+			}
 		} catch (error: any) {
-			// Release lock on error
+			// Release lock on any error
 			releaseLock();
 			throw new DriverAdapterError(convertDriverError(error));
 		}
@@ -77,9 +89,19 @@ export class BunSqliteAdapter extends BunSqliteQueryable implements SqlDriverAda
 
 	/**
 	 * Dispose of the adapter and close the database
+	 * Waits for any active transaction to complete before closing
 	 */
 	async dispose(): Promise<void> {
-		this.db.close();
+		if (this.disposed) return;
+		this.disposed = true;
+
+		// Acquire mutex to ensure no transaction is in progress
+		const releaseLock = await this.transactionMutex.acquire();
+		try {
+			this.db.close();
+		} finally {
+			releaseLock();
+		}
 	}
 
 	/**

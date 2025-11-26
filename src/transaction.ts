@@ -21,12 +21,29 @@ import { BunSqliteQueryable, debug } from "./queryable.js";
 export class AsyncMutex {
 	private locked = false;
 	private queue: Array<() => void> = [];
+	private maxQueueSize: number;
+
+	/**
+	 * Create a new AsyncMutex
+	 * @param maxQueueSize Maximum number of waiters allowed in queue (default: 1000)
+	 */
+	constructor(maxQueueSize = 1000) {
+		this.maxQueueSize = maxQueueSize;
+	}
 
 	async acquire(): Promise<() => void> {
 		// If not locked, acquire immediately
 		if (!this.locked) {
 			this.locked = true;
 			return this.createReleaser();
+		}
+
+		// Check queue size limit to prevent unbounded memory growth
+		if (this.queue.length >= this.maxQueueSize) {
+			throw new Error(
+				`Transaction queue full (max: ${this.maxQueueSize}). ` +
+					"Too many concurrent transactions waiting. Consider reducing concurrency or increasing maxQueueSize.",
+			);
 		}
 
 		// Otherwise, wait in queue

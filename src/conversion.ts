@@ -143,6 +143,10 @@ export function getColumnTypes(
 /**
  * Infers column type from an actual value
  * Used when both declaredTypes and runtimeTypes are unavailable
+ *
+ * Note: For numbers, we return UnknownNumber to match the official better-sqlite3 adapter.
+ * This lets driver-adapter-utils handle the conversion properly rather than guessing
+ * between Int32 and Double based on Number.isInteger().
  */
 function inferTypeFromValue(value: unknown): ColumnType | null {
 	if (value === null || value === undefined) return null;
@@ -151,7 +155,9 @@ function inferTypeFromValue(value: unknown): ColumnType | null {
 		return ColumnTypeEnum.Int64;
 	}
 	if (typeof value === "number") {
-		return Number.isInteger(value) ? ColumnTypeEnum.Int32 : ColumnTypeEnum.Double;
+		// Use UnknownNumber to match official better-sqlite3 adapter behavior
+		// This indicates uncertainty and lets driver-adapter-utils handle conversion
+		return ColumnTypeEnum.UnknownNumber;
 	}
 	if (typeof value === "string") {
 		return ColumnTypeEnum.Text;
