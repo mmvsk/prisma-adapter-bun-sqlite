@@ -1,6 +1,6 @@
 {
   "name": "prisma-adapter-bun-sqlite",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "Prisma driver adapter for Bun's native SQLite (bun:sqlite) - zero dependencies, production-ready",
   "type": "module",
   "main": "./dist/index.js",

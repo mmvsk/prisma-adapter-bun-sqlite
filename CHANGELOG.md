@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.2] - 2025-12-08
+
+### Changed
+
+- Updated peer/dependency version ranges to `^7.0.0` (was `^7.1.0`) to avoid warnings for users on Prisma 7.0.x
+- Updated lockfile to Prisma 7.1.0 and Bun 1.3.4
+
+### Compatibility
+
+- Tested with Bun 1.3.4 (SQLite 3.51.1) - all 135 tests passing
+- Supports Prisma 7.0.0+ and Bun 1.3.3+
+
+---
+
 ## [0.6.1] - 2025-11-26
 
 ### Changed
