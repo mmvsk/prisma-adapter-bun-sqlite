@@ -24,7 +24,8 @@
     "test": "bun test",
     "prisma:generate": "bunx prisma generate",
     "prisma:migrate": "bunx prisma migrate dev",
-    "typecheck": "bun tsc --noEmit"
+    "typecheck": "bun tsc --noEmit",
+    "benchmark": "bun run tests/benchmark.ts"
   },
   "keywords": [
     "prisma",

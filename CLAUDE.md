@@ -38,7 +38,8 @@ tests/
 ├── migrations.test.ts        # Migration utilities (12 tests)
 ├── shadow-database.test.ts   # Shadow DB (9 tests)
 ├── wal-and-types.test.ts     # WAL + types (18 tests)
-└── official-scenarios.test.ts # Official Prisma scenarios (40 tests)
+├── official-scenarios.test.ts # Official Prisma scenarios (40 tests)
+└── benchmark.ts              # Performance benchmark (not a test file)
 ```
 
 ## Key Classes
@@ -66,9 +67,20 @@ tests/
 ## Testing
 
 ```bash
-bun tsc --noEmit && bun test  # Typecheck + all 136 tests
+bun tsc --noEmit && bun test  # Typecheck + all tests
 bun test tests/general.test.ts  # Core adapter only
 ```
+
+## Benchmarking
+
+```bash
+bun run benchmark              # In-memory, key/value output
+bun run benchmark --json       # JSON to stdout
+bun run benchmark --json out.json  # JSON to file
+bun run benchmark --fs         # File-based database
+```
+
+Use benchmarks to measure performance impact of changes (e.g., optimizations).
 
 ## Development Workflow
 
