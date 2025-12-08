@@ -3,7 +3,7 @@
 Reliable, fast, zero-dependency Prisma adapter for Bun's native SQLite.
 
 [![npm](https://img.shields.io/npm/v/prisma-adapter-bun-sqlite)](https://www.npmjs.com/package/prisma-adapter-bun-sqlite)
-[![tests](https://img.shields.io/badge/tests-135%2F135-success)](./tests)
+[![tests](https://img.shields.io/badge/tests-137%2F137-success)](./tests)
 [![bun](https://img.shields.io/badge/bun-1.3.3+-black)](https://bun.sh)
 [![prisma](https://img.shields.io/badge/prisma-7.0+-blue)](https://prisma.io)
 
@@ -199,6 +199,7 @@ const prisma = new PrismaClient({ adapter });
 - **Single writer** - SQLite limitation (readers unlimited)
 - **Local only** - No network support (use libsql for Turso)
 - **SERIALIZABLE only** - SQLite's only isolation level
+- **Aggregate DateTime with `unixepoch-ms`** - When using `timestampFormat: "unixepoch-ms"` with `safeIntegers: true` (default), aggregate functions (`_min`, `_max`) on DateTime fields return `Invalid Date`. This occurs because SQLite returns integers for aggregates, which get converted to BigInt strings that JavaScript's `Date` constructor cannot parse. Set `safeIntegers: false` if you don't have BigInt columns.
 
 ## Architecture
 

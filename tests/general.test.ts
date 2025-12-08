@@ -518,6 +518,113 @@ beforeEach(async () => {
 	});
 
 	describe("Aggregations", () => {
+		test("aggregate min/max on DateTime field (iso8601 format)", async () => {
+			const user = await prisma.user.create({
+				data: { email: "datetime-agg@example.com", name: "DateTime Agg User" },
+			});
+
+			const date1 = new Date("2023-01-01T10:00:00Z");
+			const date2 = new Date("2023-01-15T10:00:00Z");
+			const date3 = new Date("2023-02-01T10:00:00Z");
+
+			await prisma.post.createMany({
+				data: [
+					{ title: "Post 1", authorId: user.id, createdAt: date1 },
+					{ title: "Post 2", authorId: user.id, createdAt: date2 },
+					{ title: "Post 3", authorId: user.id, createdAt: date3 },
+				],
+			});
+
+			const result = await prisma.post.aggregate({
+				_min: { createdAt: true },
+				_max: { createdAt: true },
+				_count: true,
+			});
+
+			expect(result._count).toBe(3);
+			expect(result._min.createdAt).toBeInstanceOf(Date);
+			expect(result._max.createdAt).toBeInstanceOf(Date);
+			expect(result._min.createdAt?.getTime()).toBe(date1.getTime());
+			expect(result._max.createdAt?.getTime()).toBe(date3.getTime());
+		});
+
+		test("aggregate min/max on DateTime field (unixepoch-ms + safeIntegers:false)", async () => {
+			// When using unixepoch-ms format with safeIntegers:false, aggregate DateTime works
+			// because values stay as numbers (not BigInt→string), and Prisma can parse them.
+			//
+			// Note: safeIntegers:true (default) causes BigInt→string conversion which breaks
+			// DateTime parsing. Use safeIntegers:false if you don't have BigInt columns.
+
+			// Create a separate adapter with unixepoch-ms format AND safeIntegers: false
+			const unixAdapter = new PrismaBunSqlite({
+				url: ":memory:",
+				timestampFormat: "unixepoch-ms",
+				safeIntegers: false,  // Key fix!
+			});
+			const unixPrisma = new PrismaClient({ adapter: unixAdapter });
+
+			// Run migrations to set up the schema
+			await unixPrisma.$executeRaw`
+				CREATE TABLE User (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					email TEXT UNIQUE NOT NULL,
+					name TEXT,
+					age INTEGER,
+					balance REAL DEFAULT 0.0,
+					isActive INTEGER DEFAULT 1,
+					metadata TEXT,
+					createdAt INTEGER NOT NULL,
+					updatedAt INTEGER NOT NULL
+				)
+			`;
+			await unixPrisma.$executeRaw`
+				CREATE TABLE Post (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					title TEXT NOT NULL,
+					content TEXT,
+					published INTEGER DEFAULT 0,
+					viewCount INTEGER DEFAULT 0,
+					rating REAL,
+					publishedAt INTEGER,
+					authorId INTEGER NOT NULL,
+					createdAt INTEGER NOT NULL,
+					updatedAt INTEGER NOT NULL,
+					FOREIGN KEY (authorId) REFERENCES User(id) ON DELETE CASCADE
+				)
+			`;
+
+			const now = Date.now();
+			await unixPrisma.$executeRaw`
+				INSERT INTO User (email, name, createdAt, updatedAt)
+				VALUES ('unix-test@example.com', 'Unix Test User', ${now}, ${now})
+			`;
+
+			const date1 = new Date("2023-01-01T10:00:00Z");
+			const date2 = new Date("2023-01-15T10:00:00Z");
+			const date3 = new Date("2023-02-01T10:00:00Z");
+
+			await unixPrisma.$executeRaw`
+				INSERT INTO Post (title, authorId, createdAt, updatedAt)
+				VALUES
+					('Post 1', 1, ${date1.getTime()}, ${now}),
+					('Post 2', 1, ${date2.getTime()}, ${now}),
+					('Post 3', 1, ${date3.getTime()}, ${now})
+			`;
+
+			const result = await unixPrisma.post.aggregate({
+				_min: { createdAt: true },
+				_max: { createdAt: true },
+				_count: true,
+			});
+
+			expect(result._count).toBe(3);
+			// These assertions verify that aggregate DateTime fields work with unixepoch-ms
+			expect(result._min.createdAt).toBeInstanceOf(Date);
+			expect(result._max.createdAt).toBeInstanceOf(Date);
+			expect(result._min.createdAt?.getTime()).toBe(date1.getTime());
+			expect(result._max.createdAt?.getTime()).toBe(date3.getTime());
+		});
+
 		test("count with where", async () => {
 			await prisma.user.createMany({
 				data: [
