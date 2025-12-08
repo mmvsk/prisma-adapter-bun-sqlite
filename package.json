@@ -48,7 +48,7 @@
   },
   "homepage": "https://github.com/mmvsk/prisma-adapter-bun-sqlite#readme",
   "peerDependencies": {
-    "@prisma/client": "^7.1.0",
+    "@prisma/client": "^7.0.0"
   },
   "peerDependenciesMeta": {
     "bun-types": {

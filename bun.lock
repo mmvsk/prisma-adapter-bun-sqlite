@@ -5,7 +5,7 @@
     "": {
       "name": "prisma-bun-sqlite-adapter",
       "dependencies": {
-        "@prisma/driver-adapter-utils": "^7.1.0",
+        "@prisma/driver-adapter-utils": "^7.0.0",
       },
       "devDependencies": {
         "@prisma/client": "^7.1.0",
@@ -14,7 +14,7 @@
         "typescript": "~5.9.3",
       },
       "peerDependencies": {
-        "@prisma/client": "^7.1.0",
+        "@prisma/client": "^7.0.0",
       },
     },
   },
