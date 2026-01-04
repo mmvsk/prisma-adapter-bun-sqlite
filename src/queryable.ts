@@ -98,14 +98,18 @@ export class BunSqliteQueryable {
 				}
 			}
 
-			// Get runtime column types (available after execution)
-			// This provides actual types for computed columns (COUNT, expressions, etc.)
-			// Note: columnTypes throws for non-read-only statements (INSERT...RETURNING, etc.) and pragmas
+			// Get runtime column types only when needed (optimization suggested by @crishoj)
+			// columnTypes is expensive - it resets and steps the statement again
+			// Only call it when declaredTypes has nulls (computed columns, expressions, etc.)
+			// See: https://github.com/mmvsk/prisma-adapter-bun-sqlite/issues/1
 			let runtimeTypes: (string | null)[] = [];
-			try {
-				runtimeTypes = stmt.columnTypes?.slice() ?? [];
-			} catch {
-				// columnTypes not available for INSERT/UPDATE/DELETE with RETURNING or certain pragmas
+			const needsRuntimeTypes = declaredTypes.some((dt) => dt === null);
+			if (needsRuntimeTypes) {
+				try {
+					runtimeTypes = stmt.columnTypes?.slice() ?? [];
+				} catch {
+					// columnTypes not available for INSERT/UPDATE/DELETE with RETURNING or certain pragmas
+				}
 			}
 
 			// Get column types, using runtime types for computed columns
