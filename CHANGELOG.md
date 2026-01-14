@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.5] - 2026-01-14
+
+### Changed
+
+- Updated Prisma dependencies from 7.1.0 to 7.2.0
+- Updated @types/bun from 1.3.4 to 1.3.6
+
+### Compatibility
+
+- 158 tests passing
+- Supports Prisma 7.0.0+ and Bun 1.3.3+
+
+---
+
 ## [0.6.4] - 2025-12-11
 
 ### Added
