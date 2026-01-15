@@ -1,6 +1,6 @@
 {
   "name": "prisma-adapter-bun-sqlite",
-  "version": "0.6.5",
+  "version": "0.6.6",
   "description": "Prisma driver adapter for Bun's native SQLite (bun:sqlite) - zero dependencies, production-ready",
   "type": "module",
   "main": "./dist/index.js",
@@ -22,7 +22,7 @@
   ],
   "scripts": {
     "build": "bun run build:js && bun run build:types",
-    "build:js": "bun build src/index.ts src/sanity-check.ts --outdir dist --target bun --format esm",
+    "build:js": "bun build src/index.ts src/sanity-check.ts --outdir dist --target bun --format esm --sourcemap=linked",
     "build:types": "tsc --project tsconfig.build.json",
     "prepublishOnly": "bun run build && bun test",
     "test": "bun test",

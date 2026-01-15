@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.6] - 2026-01-15
+
+### Added
+
+- **JavaScript sourcemaps** - Build now generates `.js.map` files with `--sourcemap=linked`
+  - Helps consumers debug issues with the library
+  - Error tracking tools (Sentry, etc.) can provide accurate stack traces
+  - Build tools like webpack's source-map-loader can extract and use them
+
+### Compatibility
+
+- 158 tests passing
+- Supports Prisma 7.0.0+ and Bun 1.3.3+
+
+---
+
 ## [0.6.5] - 2026-01-14
 
 ### Changed
