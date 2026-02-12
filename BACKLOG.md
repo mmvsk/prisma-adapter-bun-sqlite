@@ -32,7 +32,7 @@ Key design decisions (see ARCHITECTURE.md for details):
 11. **Mutex queue size limit** - Prevent unbounded memory growth (default: 1000)
 12. **Safe dispose()** - Wait for transaction completion before closing
 13. **UnknownNumber for type inference** - Match official adapter behavior
-14. **Bun 1.3.3+ minimum** - Simplified codebase with consistent metadata access pattern
+14. **Bun 1.3.0+ minimum** - Simplified codebase with consistent metadata access pattern
 
 ---
 

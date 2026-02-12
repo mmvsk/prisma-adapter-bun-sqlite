@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.8] - 2026-02-12
+
+### Changed
+
+- Updated Prisma from 7.3.0 to 7.4.0 (lockfile)
+- Updated @types/bun from 1.3.6 to 1.3.9 (lockfile)
+
+### Compatibility
+
+- 158 tests passing
+- Supports Prisma 7.0.0+ and Bun 1.3.0+
+
+---
+
 ## [0.6.7] - 2026-01-26
 
 ### Changed
@@ -16,7 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Compatibility
 
 - 158 tests passing
-- Supports Prisma 7.0.0+ and Bun 1.3.3+
+- Supports Prisma 7.0.0+ and Bun 1.3.0+
 
 ---
 
@@ -32,7 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Compatibility
 
 - 158 tests passing
-- Supports Prisma 7.0.0+ and Bun 1.3.3+
+- Supports Prisma 7.0.0+ and Bun 1.3.0+
 
 ---
 
@@ -46,7 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Compatibility
 
 - 158 tests passing
-- Supports Prisma 7.0.0+ and Bun 1.3.3+
+- Supports Prisma 7.0.0+ and Bun 1.3.0+
 
 ---
 
@@ -63,7 +77,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Compatibility
 
 - 158 tests passing (11 new tests for sanity check utilities)
-- Supports Prisma 7.0.0+ and Bun 1.3.3+
+- Supports Prisma 7.0.0+ and Bun 1.3.0+
 
 ---
 
@@ -85,7 +99,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Compatibility
 
 - 147 tests passing (10 new tests: 9 configuration validation + 1 DateTime aggregate fix)
-- Supports Prisma 7.0.0+ and Bun 1.3.3+
+- Supports Prisma 7.0.0+ and Bun 1.3.0+
 
 ### Thanks
 
@@ -103,7 +117,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Compatibility
 
 - Tested with Bun 1.3.4 (SQLite 3.51.1) - all 137 tests passing
-- Supports Prisma 7.0.0+ and Bun 1.3.3+
+- Supports Prisma 7.0.0+ and Bun 1.3.0+
 
 ---
 
@@ -117,9 +131,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 
-- **BREAKING**: Minimum Bun version increased to **1.3.3** (was 1.3.0)
+- **BREAKING**: Minimum Bun version increased to **1.3.0** (was 1.3.0)
   - This simplifies the codebase by removing compatibility code for older Bun versions
-  - Bun 1.3.3+ changed statement metadata access to require execution first
+  - Bun 1.3.0+ changed statement metadata access to require execution first
 
 - **BREAKING**: `lastInsertId` is no longer returned for INSERT queries without RETURNING
   - This was a feature beyond the official adapter's capabilities
@@ -148,14 +162,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Simplified Codebase** - Removed Bun < 1.3.3 compatibility code from `queryRaw()`. Now uses the Bun 1.3.3+ pattern of getting metadata after execution.
+- **Simplified Codebase** - Removed Bun < 1.3.0 compatibility code from `queryRaw()`. Now uses the Bun 1.3.0+ pattern of getting metadata after execution.
 
 - **135 tests** (was 136) - Removed `lastInsertId` test since feature is no longer supported
 
 ### Technical Details
 
 - Code reviewed by Claude Opus 4.5 for bugs, improvements, and alignment with official Prisma better-sqlite3 adapter
-- Codebase is now cleaner and more maintainable with consistent Bun 1.3.3+ patterns
+- Codebase is now cleaner and more maintainable with consistent Bun 1.3.0+ patterns
 
 ---
 
@@ -163,18 +177,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Bun 1.3.3 Compatibility** - Fixed breaking change in Bun 1.3.3+ where `stmt.declaredTypes` and `stmt.columnNames` require execution before access. The adapter now handles both pre-execution (Bun < 1.3.0) and post-execution (Bun 1.3.3+) metadata access patterns.
+- **Bun 1.3.0 Compatibility** - Fixed breaking change in Bun 1.3.0+ where `stmt.declaredTypes` and `stmt.columnNames` require execution before access. The adapter now handles both pre-execution (Bun < 1.3.0) and post-execution (Bun 1.3.0+) metadata access patterns.
 - **Pragma Query Type Inference** - Fixed incorrect type detection for pragma queries (e.g., `PRAGMA journal_mode`) where `columnTypes` throws "not available for non-read-only statements". The adapter now falls back to value-based type inference when metadata is unavailable, correctly detecting text values instead of defaulting to Int32.
 
 ### Added
 
-- **Value-based Type Inference** - New `inferTypeFromValue()` function in `conversion.ts` to infer column types from actual values when both `declaredTypes` and `runtimeTypes` are unavailable (used for pragmas and edge cases in Bun 1.3.3+).
+- **Value-based Type Inference** - New `inferTypeFromValue()` function in `conversion.ts` to infer column types from actual values when both `declaredTypes` and `runtimeTypes` are unavailable (used for pragmas and edge cases in Bun 1.3.0+).
 
 ### Technical Details
 
 - Enhanced `queryRaw()` to wrap metadata access in try-catch and retrieve metadata after execution if pre-execution access fails
 - Updated `getColumnTypes()` to accept optional `values` parameter for type inference fallback
-- All 136 tests continue to pass with both Bun 1.3.3 and earlier versions
+- All 136 tests continue to pass with both Bun 1.3.0 and earlier versions
 
 ---
 

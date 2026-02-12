@@ -38,7 +38,7 @@ export class BunSqliteQueryable {
 	/**
 	 * Execute a query and return the result set
 	 *
-	 * Note: Requires Bun 1.3.3+ where statement metadata is available after execution.
+	 * Note: Requires Bun 1.3.0+ where statement metadata is available after execution.
 	 */
 	async queryRaw(query: SqlQuery): Promise<SqlResultSet> {
 		const tag = "[js::queryRaw]";
@@ -61,7 +61,7 @@ export class BunSqliteQueryable {
 			// stmt.values() returns arrays preserving all columns in order.
 			const rowArrays = stmt.values(...(args as SQLQueryBindings[])) ?? [];
 
-			// Get metadata after execution (Bun 1.3.3+ pattern)
+			// Get metadata after execution (Bun 1.3.0+ pattern)
 			let columnNames: string[] = [];
 			let declaredTypes: (string | null)[] = [];
 			try {

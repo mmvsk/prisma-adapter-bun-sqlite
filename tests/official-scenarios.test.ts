@@ -951,7 +951,7 @@ describe("Official Prisma SQLite Scenarios", () => {
 		});
 	});
 
-	// Note: lastInsertId is no longer supported in Bun 1.3.3+
+	// Note: lastInsertId is no longer supported in Bun 1.3.0+
 	// The official better-sqlite3 adapter also doesn't return lastInsertId
 	// Use INSERT...RETURNING if you need the inserted ID
 

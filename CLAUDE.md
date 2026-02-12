@@ -11,13 +11,13 @@ Reliable, fast, zero-dependency Prisma adapter for Bun's native SQLite.
 
 ## Project Status
 
-**v0.6.7** - 158/158 tests passing
+**v0.6.8** - 158/158 tests passing
 
 ## Compatibility
 
-- **Bun**: 1.3.3+ (minimum required)
+- **Bun**: 1.3.0+ (minimum required)
 - **Prisma**: 7.0+
-- **Note**: Bun 1.3.3+ requires statement execution before accessing metadata. The adapter uses the post-execution metadata pattern.
+- **Note**: Bun 1.3.0+ requires statement execution before accessing metadata. The adapter uses the post-execution metadata pattern.
 
 ## File Structure
 

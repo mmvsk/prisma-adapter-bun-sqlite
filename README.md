@@ -4,7 +4,7 @@ Reliable, fast, zero-dependency Prisma adapter for Bun's native SQLite.
 
 [![npm](https://img.shields.io/npm/v/prisma-adapter-bun-sqlite)](https://www.npmjs.com/package/prisma-adapter-bun-sqlite)
 [![tests](https://img.shields.io/badge/tests-158%2F158-success)](./tests)
-[![bun](https://img.shields.io/badge/bun-1.3.3+-black)](https://bun.sh)
+[![bun](https://img.shields.io/badge/bun-1.3.0+-black)](https://bun.sh)
 [![prisma](https://img.shields.io/badge/prisma-7.0+-blue)](https://prisma.io)
 
 ## Why This Adapter?
@@ -252,7 +252,7 @@ const prisma = new PrismaClient({ adapter });
 
 | Requirement | Version |
 |-------------|---------|
-| Bun | >= 1.3.3 |
+| Bun | >= 1.3.0 |
 | Prisma | >= 7.0.0 |
 
 ### Runtime Support

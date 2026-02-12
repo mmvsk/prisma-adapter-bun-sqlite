@@ -96,7 +96,7 @@ async startTransaction(): Promise<Transaction> {
 
 ### Column Type Detection
 
-We use Bun's Statement metadata APIs (requires Bun 1.3.3+):
+We use Bun's Statement metadata APIs (requires Bun 1.3.0+):
 
 | API | Availability | Returns | Use Case |
 |-----|--------------|---------|----------|
@@ -104,8 +104,8 @@ We use Bun's Statement metadata APIs (requires Bun 1.3.3+):
 | `stmt.declaredTypes` | Post-execution | `(string \| null)[]` | Schema types (e.g., "INTEGER", "TEXT") |
 | `stmt.columnTypes` | Post-execution | `(string \| null)[]` | Runtime types for computed columns |
 
-**Bun 1.3.3+ Pattern:**
-As of Bun 1.3.3, statement metadata is only available after execution. The adapter:
+**Bun 1.3.0+ Pattern:**
+As of Bun 1.3.0, statement metadata is only available after execution. The adapter:
 1. Executes the query with `stmt.values()`
 2. Accesses `stmt.columnNames` and `stmt.declaredTypes` after execution
 3. Falls back to value-based type inference if metadata is unavailable
@@ -197,7 +197,7 @@ Total: 135 tests
 ## Known Limitations
 
 1. **Bun only** - Uses `bun:sqlite` native API
-2. **Bun 1.3.3+** - Requires Bun 1.3.3+ for post-execution metadata access
+2. **Bun 1.3.0+** - Requires Bun 1.3.0+ for post-execution metadata access
 3. **Local only** - No network support (use libsql for Turso)
 4. **Single writer** - SQLite limitation, mitigated by AsyncMutex
 5. **SERIALIZABLE only** - SQLite's only isolation level
