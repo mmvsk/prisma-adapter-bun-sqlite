@@ -3,13 +3,13 @@
 Reliable, fast, zero-dependency Prisma adapter for Bun's native SQLite.
 
 [![npm](https://img.shields.io/npm/v/prisma-adapter-bun-sqlite)](https://www.npmjs.com/package/prisma-adapter-bun-sqlite)
-[![tests](https://img.shields.io/badge/tests-158%2F158-success)](./tests)
+[![tests](https://img.shields.io/badge/tests-153%2F153-success)](./tests)
 [![bun](https://img.shields.io/badge/bun-1.3.0+-black)](https://bun.sh)
 [![prisma](https://img.shields.io/badge/prisma-7.0+-blue)](https://prisma.io)
 
 ## Why This Adapter?
 
-- **Fully-tested** - 158 tests including 40 scenarios ported from Prisma's official test suite
+- **Fully-tested** - 153 tests including 40 scenarios ported from Prisma's official test suite
 - **Drop-in replacement** - Compatible with `@prisma/adapter-libsql` and `@prisma/adapter-better-sqlite3`
 - **Production-ready** - WAL mode, safe integers, proper error mapping to Prisma codes (P2002, P2003, etc.)
 - **Zero dependencies** - Uses Bun's native `bun:sqlite`, no Node.js packages or native binaries
