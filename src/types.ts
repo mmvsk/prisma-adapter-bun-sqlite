@@ -105,6 +105,18 @@ export type PrismaBunSqliteOptions = {
 	 * @see WalConfiguration
 	 */
 	wal?: boolean | WalConfiguration;
+
+	/**
+	 * @deprecated No longer needed. Since v0.7.0, safe BigInts are automatically
+	 * converted to numbers, fixing DateTime aggregates. This option is ignored.
+	 */
+	allowBigIntToNumberConversion?: boolean;
+
+	/**
+	 * @deprecated No longer needed. Since v0.7.0, DateTime aggregates work
+	 * correctly with `unixepoch-ms`. This option is ignored.
+	 */
+	allowUnsafeDateTimeAggregates?: boolean;
 };
 
 /**

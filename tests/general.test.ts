@@ -1,4 +1,4 @@
-import { test, expect, describe, beforeEach } from "bun:test";
+import { test, expect, describe, beforeEach, jest } from "bun:test";
 import { PrismaClient } from "@/prisma-generated/client";
 import { PrismaBunSqlite } from "../src/index";
 
@@ -1238,5 +1238,41 @@ beforeEach(async () => {
 					url: ":memory:",
 				});
 			}).not.toThrow();
+		});
+
+		test("allowBigIntToNumberConversion emits deprecation warning", () => {
+			const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+			try {
+				expect(() => {
+					new PrismaBunSqlite({
+						url: ":memory:",
+						timestampFormat: "unixepoch-ms",
+						allowBigIntToNumberConversion: true,
+					});
+				}).not.toThrow();
+				expect(warnSpy).toHaveBeenCalledWith(
+					expect.stringContaining("allowBigIntToNumberConversion")
+				);
+			} finally {
+				warnSpy.mockRestore();
+			}
+		});
+
+		test("allowUnsafeDateTimeAggregates emits deprecation warning", () => {
+			const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+			try {
+				expect(() => {
+					new PrismaBunSqlite({
+						url: ":memory:",
+						timestampFormat: "unixepoch-ms",
+						allowUnsafeDateTimeAggregates: true,
+					});
+				}).not.toThrow();
+				expect(warnSpy).toHaveBeenCalledWith(
+					expect.stringContaining("allowUnsafeDateTimeAggregates")
+				);
+			} finally {
+				warnSpy.mockRestore();
+			}
 		});
 	});

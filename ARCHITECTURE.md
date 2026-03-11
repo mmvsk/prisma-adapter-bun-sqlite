@@ -57,6 +57,9 @@ PrismaBunSqlite (factory) → creates BunSqliteAdapter
 |--------------|---------------|
 | `ArrayBuffer`/`Buffer` | `number[]` |
 | `bigint` | `number` (if safe integer) or `string` |
+
+Safe BigInts are converted to numbers because Prisma's data-mapper expects `typeof value === 'number'` for both `datetime` and `bigint` field type handling (e.g., DateTime aggregates with `unixepoch-ms`).
+
 | Unix timestamp (DateTime col) | ISO8601 string |
 | Float in Int column | `Math.trunc()` |
 
