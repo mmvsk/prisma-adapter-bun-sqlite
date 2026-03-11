@@ -62,9 +62,9 @@ const users = await prisma.user.findMany();
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `url` | `string` | required | Database path (`file:./path/to/db.sqlite`) or `:memory:` |
-| `shadowDatabaseUrl` | `string` | `":memory:"` | Shadow DB for migrations |
 | `safeIntegers` | `boolean` | `true` | Prevent precision loss for BigInt |
 | `timestampFormat` | `"iso8601"` \| `"unixepoch-ms"` | `"iso8601"` | DateTime storage format (see [Timestamp Format](#timestamp-format)) |
+| `shadowDatabaseUrl` | `string` | `":memory:"` | Shadow DB for migrations |
 | `wal` | `boolean` \| `WalConfiguration` | `undefined` | WAL mode configuration |
 
 ```typescript
