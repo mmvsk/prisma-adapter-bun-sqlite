@@ -7,10 +7,13 @@
 	],
 
 	"compilerOptions": {
+		// Type declarations
+		"types": ["bun"],
+
 		// Environment setup & latest features
-		"lib": ["ESNext"],
-		"target": "ESNext",
-		"module": "Preserve",
+		"lib": ["esnext"],
+		"target": "esnext",
+		"module": "preserve",
 		"moduleDetection": "force",
 		"jsx": "react-jsx",
 		"allowJs": true,
@@ -33,6 +36,7 @@
 		"noUnusedParameters": false,
 		"noPropertyAccessFromIndexSignature": false,
 
+		// Paths
 		"paths": {
 			"@/prisma-generated/*": ["./prisma/generated/*"],
 			"@/*": ["./src/*"]

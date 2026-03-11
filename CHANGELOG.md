@@ -24,6 +24,10 @@ Existing configurations that pass these options will continue to work without er
 
 - **BigInt→number conversion** — Safe BigInts (`Number.isSafeInteger`) are now unconditionally converted to numbers instead of strings. Unsafe BigInts (outside ±2^53-1) remain as strings. This matches the contract expected by Prisma's data-mapper, which handles `typeof value === 'number'` for both `datetime` and `bigint` field types.
 - Removed configuration validation block for `unixepoch-ms` — no special options needed.
+- Updated TypeScript from 5.9.3 to 6.0.1-rc (dev dependency)
+- Updated Prisma from 7.4.0 to 7.4.2 (lockfile)
+- Updated @types/bun from 1.3.9 to 1.3.10 (lockfile)
+- Added explicit `"types": ["bun"]` to tsconfig.json (required by TypeScript 6)
 
 ### Compatibility
 
