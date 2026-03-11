@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.0] - 2026-03-11
+
+### Breaking Changes
+
+- **BREAKING**: Removed `allowBigIntToNumberConversion` and `allowUnsafeDateTimeAggregates` options from `PrismaBunSqliteOptions`. These workarounds are no longer needed — `unixepoch-ms` now works correctly out of the box.
+- **BREAKING**: `timestampFormat: "unixepoch-ms"` no longer requires explicit acknowledgment options. If your code passes `allowBigIntToNumberConversion` or `allowUnsafeDateTimeAggregates`, remove them (TypeScript will flag them as unknown properties).
+
+### Fixed
+
+- **DateTime aggregates with `unixepoch-ms`** - `_min` and `_max` on DateTime fields now return valid Dates instead of `Invalid Date` when using `timestampFormat: "unixepoch-ms"` with `safeIntegers: true` (default). Root cause: aggregate result columns are computed columns — SQLite metadata gives them runtime type `INTEGER` (→ `Int64`), not `DATETIME`, so BigInts were converted to strings which Prisma couldn't parse as dates.
+
+### Changed
+
+- **BigInt→number conversion** - Safe BigInts (`Number.isSafeInteger`) are now unconditionally converted to numbers instead of strings. Unsafe BigInts (outside ±2^53-1) remain as strings. This matches the contract expected by Prisma's data-mapper, which handles `typeof value === 'number'` for both `datetime` and `bigint` field types.
+- Removed configuration validation block for `unixepoch-ms` — no special options needed.
+
+### Compatibility
+
+- 151 tests passing (removed 8 obsolete config validation tests, added 1 new)
+- Supports Prisma 7.0.0+ and Bun 1.3.0+
+
+---
+
 ## [0.6.8] - 2026-02-12
 
 ### Changed

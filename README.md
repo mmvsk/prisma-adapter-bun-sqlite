@@ -64,9 +64,7 @@ const users = await prisma.user.findMany();
 | `url` | `string` | required | Database path (`file:./path/to/db.sqlite`) or `:memory:` |
 | `shadowDatabaseUrl` | `string` | `":memory:"` | Shadow DB for migrations |
 | `safeIntegers` | `boolean` | `true` | Prevent precision loss for BigInt |
-| `timestampFormat` | `"iso8601"` \| `"unixepoch-ms"` | `"iso8601"` | DateTime storage. `iso8601` is safe; `unixepoch-ms` requires workaround (see [Timestamp Format](#timestamp-format)) |
-| `allowBigIntToNumberConversion` | `boolean` | `false` | With `unixepoch-ms`: converts BigInts in timestamp range to numbers (see [Timestamp Format](#timestamp-format)) |
-| `allowUnsafeDateTimeAggregates` | `boolean` | `false` | With `unixepoch-ms`: accepts DateTime aggregate limitation (see [Timestamp Format](#timestamp-format)) |
+| `timestampFormat` | `"iso8601"` \| `"unixepoch-ms"` | `"iso8601"` | DateTime storage format (see [Timestamp Format](#timestamp-format)) |
 | `wal` | `boolean` \| `WalConfiguration` | `undefined` | WAL mode configuration |
 
 ```typescript
@@ -90,68 +88,17 @@ The adapter supports two DateTime storage formats:
 
 | Format | Storage | Pros | Cons |
 |--------|---------|------|------|
-| `iso8601` (default) | `TEXT` | Safe, human-readable, SQLite date functions work | Slightly larger storage |
-| `unixepoch-ms` | `INTEGER` | Compact, fast comparisons | Requires workaround (see below) |
+| `iso8601` (default) | `TEXT` | Human-readable, SQLite date functions work | Slightly larger storage |
+| `unixepoch-ms` | `INTEGER` | Compact, fast comparisons | Less human-readable |
 
-**Recommendation:** Use `iso8601` (default). It's safe and works correctly in all cases.
-
-#### Why `unixepoch-ms` needs a workaround
-
-When using `timestampFormat: "unixepoch-ms"` with `safeIntegers: true` (the default), DateTime aggregate functions (`_min`, `_max`) return `Invalid Date`.
-
-**Why this happens:** Unix timestamps in milliseconds (e.g., `1733644800000`) exceed JavaScript's safe integer range when stored as SQLite INTEGER. With `safeIntegers: true`, SQLite returns these as BigInt, but Prisma expects numbers for DateTime aggregates.
-
-This is a known limitation that also affects the official `@prisma/adapter-better-sqlite3`.
-
-#### Choosing `unixepoch-ms`
-
-If you want `unixepoch-ms` (e.g., for performance or existing schema), you must choose one of three workarounds:
-
-**Option 1: `safeIntegers: false`** (simplest, if your data allows)
+Both formats work correctly out of the box, including DateTime aggregate functions (`_min`, `_max`).
 
 ```typescript
 const adapter = new PrismaBunSqlite({
   url: "file:./db.sqlite",
   timestampFormat: "unixepoch-ms",
-  safeIntegers: false,  // All integers returned as JS numbers
 });
 ```
-
-- All integers are JavaScript numbers (no BigInt)
-- **Compromise:** Integers outside `Number.MAX_SAFE_INTEGER` (±9007199254740991) lose precision
-- **Safe when:** Your BIGINT columns stay within safe integer range
-
-**Option 2: `allowBigIntToNumberConversion: true`** (fixes aggregates, mixed return types)
-
-```typescript
-const adapter = new PrismaBunSqlite({
-  url: "file:./db.sqlite",
-  timestampFormat: "unixepoch-ms",
-  allowBigIntToNumberConversion: true,
-});
-```
-
-- BigInts in timestamp range (0 to ~year 2200) are converted to numbers
-- Other BigInts remain as strings (Prisma's standard BigInt format)
-- **Compromise:** Integer return types are mixed (some `number`, some `string`)
-- **Safe when:** You're aware of the mixed types and handle them accordingly
-
-**Option 3: `allowUnsafeDateTimeAggregates: true`** (accepts limitation)
-
-```typescript
-const adapter = new PrismaBunSqlite({
-  url: "file:./db.sqlite",
-  timestampFormat: "unixepoch-ms",
-  allowUnsafeDateTimeAggregates: true,
-});
-```
-
-- All BigInts consistently returned as strings
-- DateTime aggregates (`_min`, `_max`) return `Invalid Date`
-- **This is what `@prisma/adapter-better-sqlite3` does**
-- **Safe when:** You don't use `_min`/`_max` on DateTime fields, or handle `Invalid Date`
-
-Using `unixepoch-ms` without one of these options throws an error at adapter creation.
 
 ## Features
 

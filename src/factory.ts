@@ -58,49 +58,8 @@ export class PrismaBunSqlite implements SqlMigrationAwareDriverAdapterFactory {
 	/**
 	 * Validate configuration options
 	 */
-	private validateConfig(config: PrismaBunSqliteConfig): void {
-		// When using unixepoch-ms with safeIntegers (default), require explicit acknowledgment
-		// of DateTime aggregate limitation. Three valid workarounds:
-		// 1. safeIntegers: false - no BigInts, but potential precision loss
-		// 2. allowBigIntToNumberConversion: true - converts timestamp-range BigInts to numbers
-		// 3. allowUnsafeDateTimeAggregates: true - accepts Invalid Date for aggregates
-		if (config.timestampFormat === "unixepoch-ms" && config.safeIntegers !== false) {
-			const hasConversionOption = config.allowBigIntToNumberConversion === true;
-			const hasUnsafeOption = config.allowUnsafeDateTimeAggregates === true;
-
-			if (!hasConversionOption && !hasUnsafeOption) {
-				throw new Error(
-					`timestampFormat "unixepoch-ms" requires explicit acknowledgment of a DateTime aggregate limitation. ` +
-						`Choose one of the following options:\n` +
-						`  - safeIntegers: false                   → No BigInts (ensure your integers stay within JS safe range)\n` +
-						`  - allowBigIntToNumberConversion: true   → Converts timestamp-range BigInts to numbers\n` +
-						`  - allowUnsafeDateTimeAggregates: true   → Accepts that DateTime aggregates (_min, _max) return Invalid Date\n\n` +
-						`See documentation for details: https://github.com/mmvsk/prisma-adapter-bun-sqlite#timestamp-format`,
-				);
-			}
-
-			if (hasConversionOption && hasUnsafeOption) {
-				throw new Error(
-					`Cannot set both allowBigIntToNumberConversion and allowUnsafeDateTimeAggregates. Choose one:\n` +
-						`  - allowBigIntToNumberConversion: true  → Fixes DateTime aggregates\n` +
-						`  - allowUnsafeDateTimeAggregates: true  → Accepts limitation`,
-				);
-			}
-		}
-
-		// These options are only meaningful with unixepoch-ms + safeIntegers
-		if (config.timestampFormat !== "unixepoch-ms" || config.safeIntegers === false) {
-			if (config.allowBigIntToNumberConversion !== undefined) {
-				throw new Error(
-					`allowBigIntToNumberConversion is only applicable when timestampFormat is "unixepoch-ms" with safeIntegers enabled`,
-				);
-			}
-			if (config.allowUnsafeDateTimeAggregates !== undefined) {
-				throw new Error(
-					`allowUnsafeDateTimeAggregates is only applicable when timestampFormat is "unixepoch-ms" with safeIntegers enabled`,
-				);
-			}
-		}
+	private validateConfig(_config: PrismaBunSqliteConfig): void {
+		// No validation needed — all configurations are valid
 	}
 
 	/**

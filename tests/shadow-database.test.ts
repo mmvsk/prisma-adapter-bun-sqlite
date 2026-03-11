@@ -44,8 +44,8 @@ describe("Shadow Database Support", () => {
 			argTypes: [],
 		});
 
-		// Integers are returned as strings (BigInt→string conversion)
-		expect(result.rows).toEqual([["1"]]);
+		// Safe integers are returned as numbers
+		expect(result.rows).toEqual([[1]]);
 
 		await shadowAdapter.dispose();
 	});
@@ -65,8 +65,8 @@ describe("Shadow Database Support", () => {
 			argTypes: [],
 		});
 
-		// Integers are returned as strings (BigInt→string conversion)
-		expect(result.rows).toEqual([["42"]]);
+		// Safe integers are returned as numbers
+		expect(result.rows).toEqual([[42]]);
 
 		await shadowAdapter.dispose();
 	});

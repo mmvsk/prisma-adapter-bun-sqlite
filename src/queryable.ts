@@ -22,14 +22,12 @@ export const debug = Debug("prisma:driver-adapter:bun-sqlite");
  */
 export class BunSqliteQueryable {
 	private readonly timestampFormat: "iso8601" | "unixepoch-ms";
-	private readonly allowBigIntToNumberConversion: boolean;
 
 	constructor(
 		protected db: Database,
 		protected adapterOptions?: PrismaBunSqliteOptions,
 	) {
 		this.timestampFormat = adapterOptions?.timestampFormat ?? "iso8601";
-		this.allowBigIntToNumberConversion = adapterOptions?.allowBigIntToNumberConversion === true;
 	}
 
 	readonly provider = "sqlite" as const;
@@ -123,7 +121,7 @@ export class BunSqliteQueryable {
 
 			// Map rows to Prisma format
 			const mappedRows = rowArrays.map((rowArray) =>
-				mapRow(rowArray, columnTypes, this.allowBigIntToNumberConversion),
+				mapRow(rowArray, columnTypes),
 			);
 
 			return {

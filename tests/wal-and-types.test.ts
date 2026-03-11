@@ -87,7 +87,7 @@ describe("WAL Configuration", () => {
 			args: [],
 			argTypes: [],
 		});
-		expect(syncResult.rows[0]).toEqual(["1"]);
+		expect(syncResult.rows[0]).toEqual([1]);
 
 		// Verify WAL autocheckpoint
 		const walResult = await adapter.queryRaw({
@@ -95,7 +95,7 @@ describe("WAL Configuration", () => {
 			args: [],
 			argTypes: [],
 		});
-		expect(walResult.rows[0]).toEqual(["2000"]);
+		expect(walResult.rows[0]).toEqual([2000]);
 
 		// Verify busy timeout
 		const timeoutResult = await adapter.queryRaw({
@@ -103,7 +103,7 @@ describe("WAL Configuration", () => {
 			args: [],
 			argTypes: [],
 		});
-		expect(timeoutResult.rows[0]).toEqual(["10000"]);
+		expect(timeoutResult.rows[0]).toEqual([10000]);
 
 		await adapter.dispose();
 	});
@@ -153,10 +153,10 @@ describe("WAL Configuration", () => {
 
 	test("should handle different synchronous modes", async () => {
 		const modes = [
-			{ config: "OFF", expected: "0" },
-			{ config: "NORMAL", expected: "1" },
-			{ config: "FULL", expected: "2" },
-			{ config: "EXTRA", expected: "3" },
+			{ config: "OFF", expected: 0 },
+			{ config: "NORMAL", expected: 1 },
+			{ config: "FULL", expected: 2 },
+			{ config: "EXTRA", expected: 3 },
 		] as const;
 
 		for (const mode of modes) {
@@ -300,10 +300,10 @@ describe("UNSIGNED Integer Type Support", () => {
 		expect(result.columnTypes[7]).toBe(0);
 
 		// Verify the value is correctly handled
-		// Integers are returned as strings (BigInt→string conversion)
+		// Safe integers are returned as numbers
 		const row = result.rows[0];
 		expect(row).toBeDefined();
-		expect(row![7]).toBe("1"); // applied_steps_count as string (BigInt→string)
+		expect(row![7]).toBe(1); // applied_steps_count as number (safe integer)
 
 		await adapter.dispose();
 	});

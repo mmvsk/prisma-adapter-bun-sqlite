@@ -56,7 +56,7 @@ PrismaBunSqlite (factory) → creates BunSqliteAdapter
 | SQLite Value | Prisma Output |
 |--------------|---------------|
 | `ArrayBuffer`/`Buffer` | `number[]` |
-| `bigint` | `string` |
+| `bigint` | `number` (if safe integer) or `string` |
 | Unix timestamp (DateTime col) | ISO8601 string |
 | Float in Int column | `Math.trunc()` |
 
