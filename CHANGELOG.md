@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.1] - 2026-03-24
+
+### Changed
+
+- Updated TypeScript from 6.0.1-rc to 6.0.2 stable (dev dependency)
+- Updated Prisma from 7.4.2 to 7.5.0 (lockfile + version selectors)
+- Updated @types/bun from 1.3.10 to 1.3.11 (lockfile)
+
+### Compatibility
+
+- 153 tests passing
+- Supports Prisma 7.0.0+ and Bun 1.3.0+
+
+---
+
 ## [0.7.0] - 2026-03-11
 
 ### Deprecated
