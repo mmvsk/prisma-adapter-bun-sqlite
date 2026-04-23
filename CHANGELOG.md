@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.8.0] - 2026-04-23
+
+### Added
+
+- **Savepoint support** — `createSavepoint`, `rollbackToSavepoint`, `releaseSavepoint` on `BunSqliteTransaction`. Matches the optional `Transaction` interface methods in `@prisma/driver-adapter-utils` and the official `@prisma/adapter-better-sqlite3` adapter. Enables correct nested interactive transactions.
+- **`BunSqliteAdapter.getDatabase()`** — Public accessor for the underlying `bun:sqlite` `Database`. Used by migration utilities; not part of the `SqlDriverAdapter` contract.
+
+### Changed
+
+- **Idempotent `commit()` / `rollback()`** — Subsequent calls are now no-ops instead of silently re-writing transaction state and calling the mutex releaser again. The mutex releaser was already idempotent; this aligns the state field.
+- **BLOB rows returned as `Uint8Array`** (was `number[]`). Matches the canonical `ResultValue` shape in `@prisma/driver-adapter-utils` and the official `@prisma/adapter-better-sqlite3` adapter. Bun's SQLite returns `Uint8Array` natively — we now pass it through instead of down-converting. Transparent to Prisma users (Prisma normalizes both); relevant only for users consuming `$queryRaw` results directly.
+- **Unrecognized errors are rethrown** instead of being wrapped in `{ kind: "GenericJs" }`. This matches `@prisma/adapter-better-sqlite3` and lets `driver-adapter-utils`' `wrapAsync` register the original error (with full stack) into its `errorRegistry`. Reverses the v0.6.0 wrapping decision — that was redundant with what `wrapAsync` already does, and was truncating stack traces.
+- **`getConnectionInfo.maxBindValues`** bumped from `999` to `32766` (modern SQLite 3.32+ default; Bun's SQLite supports up to 250000 at compile time). Removes unnecessary throttling of large `IN` queries.
+- Migration utilities (`runMigrations`, `getAppliedMigrations`) no longer reach into the adapter via `(adapter as any).db`. They type-check against `BunSqliteAdapter` and throw a clear error otherwise.
+- Updated Prisma from 7.5.0 to 7.8.0 (lockfile + version selectors).
+- Updated @types/bun from 1.3.11 to 1.3.13 (lockfile). Tested against Bun 1.3.13.
+- Updated TypeScript from 6.0.2 to 6.0.3 (dev dependency).
+
+### Removed
+
+- **`allowBigIntToNumberConversion`** and **`allowUnsafeDateTimeAggregates`** config options. Deprecated and no-ops since v0.7.0; removed entirely. If you still pass them, TypeScript will flag the excess property; at runtime they are silently ignored. Remove them from your `PrismaBunSqlite({ ... })` call.
+
+### Technical Details
+
+- Codebase reviewed by Claude Opus 4.7 against the upstream `@prisma/adapter-better-sqlite3` source for behavioral parity and bug fixes.
+
+### Compatibility
+
+- 154 tests passing (3 new: savepoints, commit idempotence, rollback-after-commit no-op; 2 removed: deprecated-option warnings)
+- Supports Prisma 7.0.0+ and Bun 1.3.0+
+
+---
+
 ## [0.7.1] - 2026-03-24
 
 ### Changed

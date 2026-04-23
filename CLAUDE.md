@@ -11,7 +11,7 @@ Reliable, fast, zero-dependency Prisma adapter for Bun's native SQLite.
 
 ## Project Status
 
-**v0.7.1** - 153/153 tests passing
+**v0.8.0** - 154/154 tests passing
 
 ## Compatibility
 
@@ -35,11 +35,11 @@ src/
 └── sanity-check.ts   # Runtime validation (checkWalMode, checkForeignKeys)
 
 tests/
-├── general.test.ts           # Core adapter (57 tests)
+├── general.test.ts           # Core adapter (65 tests)
 ├── migrations.test.ts        # Migration utilities (12 tests)
 ├── shadow-database.test.ts   # Shadow DB (9 tests)
 ├── wal-and-types.test.ts     # WAL + types (18 tests)
-├── official-scenarios.test.ts # Official Prisma scenarios (40 tests)
+├── official-scenarios.test.ts # Official Prisma scenarios (39 tests)
 ├── sanity-check.test.ts      # Sanity check utilities (11 tests)
 └── benchmark.ts              # Performance benchmark (not a test file)
 ```

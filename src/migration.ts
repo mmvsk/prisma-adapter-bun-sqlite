@@ -18,7 +18,26 @@
  * ```
  */
 
+import type { Database } from "bun:sqlite";
 import type { SqlDriverAdapter } from "@prisma/driver-adapter-utils";
+
+import { BunSqliteAdapter } from "./adapter.js";
+
+/**
+ * Internal: resolve the underlying bun:sqlite Database from an adapter.
+ * Throws if the adapter isn't a `BunSqliteAdapter` — migration utilities
+ * depend on synchronous prepared-statement access and cannot be used with
+ * other `SqlDriverAdapter` implementations.
+ */
+function resolveDatabase(adapter: SqlDriverAdapter): Database {
+	if (!(adapter instanceof BunSqliteAdapter)) {
+		throw new Error(
+			"prisma-adapter-bun-sqlite migration utilities require a BunSqliteAdapter. " +
+			"Pass the adapter returned by `new PrismaBunSqlite(...).connect()`.",
+		);
+	}
+	return adapter.getDatabase();
+}
 
 /**
  * A migration to apply
@@ -110,11 +129,8 @@ export async function runMigrations(
 	// Create migration tracking table
 	await adapter.executeScript(MIGRATION_TABLE_SQL);
 
-	// Get database instance to query applied migrations
-	const db = (adapter as any).db;
-	if (!db) {
-		throw new Error("Cannot access underlying database from adapter");
-	}
+	// Get database instance for synchronous prepared-statement access
+	const db = resolveDatabase(adapter);
 
 	let transactionActive = false;
 	if (useTransaction) {
@@ -252,10 +268,7 @@ export async function loadMigrationsFromDir(
 export async function getAppliedMigrations(
 	adapter: SqlDriverAdapter,
 ): Promise<string[]> {
-	const db = (adapter as any).db;
-	if (!db) {
-		throw new Error("Cannot access underlying database from adapter");
-	}
+	const db = resolveDatabase(adapter);
 
 	// Check if migration table exists
 	const tableExists = db

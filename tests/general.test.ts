@@ -740,6 +740,90 @@ beforeEach(async () => {
 			expect(createdProfile.userId).toBe(createdUser.id);
 		});
 
+		test("savepoints - create, rollback to, release", async () => {
+			// Uses a fresh adapter so we can drive the low-level Transaction API directly.
+			// With usePhantomQuery: false, the engine (or here, the test) issues COMMIT/ROLLBACK
+			// via executeRaw, and tx.commit()/rollback() just releases the mutex.
+			const adapter = await new PrismaBunSqlite({ url: ":memory:" }).connect();
+			try {
+				await adapter.executeScript(
+					"CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT);",
+				);
+
+				const tx = await adapter.startTransaction();
+				await tx.executeRaw({
+					sql: "INSERT INTO items (name) VALUES ('before-sp')",
+					args: [],
+					argTypes: [],
+				});
+
+				await tx.createSavepoint!("sp1");
+				await tx.executeRaw({
+					sql: "INSERT INTO items (name) VALUES ('in-sp')",
+					args: [],
+					argTypes: [],
+				});
+
+				await tx.rollbackToSavepoint!("sp1");
+				await tx.releaseSavepoint!("sp1");
+
+				await tx.executeRaw({
+					sql: "INSERT INTO items (name) VALUES ('after-release')",
+					args: [],
+					argTypes: [],
+				});
+
+				await tx.executeRaw({ sql: "COMMIT", args: [], argTypes: [] });
+				await tx.commit();
+
+				const result = await adapter.queryRaw({
+					sql: "SELECT name FROM items ORDER BY id",
+					args: [],
+					argTypes: [],
+				});
+				const names = result.rows.map((row) => row[0]);
+				expect(names).toEqual(["before-sp", "after-release"]);
+			} finally {
+				await adapter.dispose();
+			}
+		});
+
+		test("commit is idempotent - second call is a no-op", async () => {
+			const adapter = await new PrismaBunSqlite({ url: ":memory:" }).connect();
+			try {
+				const tx = await adapter.startTransaction();
+				await tx.executeRaw({ sql: "COMMIT", args: [], argTypes: [] });
+				await tx.commit();
+				// Second commit must not throw and must not double-release the mutex
+				await tx.commit();
+
+				// Mutex is released — a new transaction must start without hanging
+				const tx2 = await adapter.startTransaction();
+				await tx2.executeRaw({ sql: "COMMIT", args: [], argTypes: [] });
+				await tx2.commit();
+			} finally {
+				await adapter.dispose();
+			}
+		});
+
+		test("rollback after commit is a no-op - state does not flip", async () => {
+			const adapter = await new PrismaBunSqlite({ url: ":memory:" }).connect();
+			try {
+				const tx = await adapter.startTransaction();
+				await tx.executeRaw({ sql: "COMMIT", args: [], argTypes: [] });
+				await tx.commit();
+				// Previously would overwrite state to "rolled_back"; now a no-op.
+				await tx.rollback();
+
+				// Subsequent queries on the tx must still fail with TransactionAlreadyClosed.
+				await expect(
+					tx.executeRaw({ sql: "SELECT 1", args: [], argTypes: [] }),
+				).rejects.toThrow();
+			} finally {
+				await adapter.dispose();
+			}
+		});
+
 		test("concurrent interactive transactions - should serialize", async () => {
 			// Launch two overlapping transactions
 			// They should serialize (not throw "Transaction already active")
@@ -1240,39 +1324,4 @@ beforeEach(async () => {
 			}).not.toThrow();
 		});
 
-		test("allowBigIntToNumberConversion emits deprecation warning", () => {
-			const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
-			try {
-				expect(() => {
-					new PrismaBunSqlite({
-						url: ":memory:",
-						timestampFormat: "unixepoch-ms",
-						allowBigIntToNumberConversion: true,
-					});
-				}).not.toThrow();
-				expect(warnSpy).toHaveBeenCalledWith(
-					expect.stringContaining("allowBigIntToNumberConversion")
-				);
-			} finally {
-				warnSpy.mockRestore();
-			}
-		});
-
-		test("allowUnsafeDateTimeAggregates emits deprecation warning", () => {
-			const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
-			try {
-				expect(() => {
-					new PrismaBunSqlite({
-						url: ":memory:",
-						timestampFormat: "unixepoch-ms",
-						allowUnsafeDateTimeAggregates: true,
-					});
-				}).not.toThrow();
-				expect(warnSpy).toHaveBeenCalledWith(
-					expect.stringContaining("allowUnsafeDateTimeAggregates")
-				);
-			} finally {
-				warnSpy.mockRestore();
-			}
-		});
 	});

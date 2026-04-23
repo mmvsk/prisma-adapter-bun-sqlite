@@ -131,10 +131,12 @@ export class BunSqliteTransaction extends BunSqliteQueryable implements Transact
 	/**
 	 * Commit the transaction
 	 * With usePhantomQuery: false, Prisma engine sends COMMIT via executeRaw
-	 * This method updates state and releases the lock
+	 * This method updates state and releases the lock.
+	 * Idempotent: second call is a no-op (matches the mutex releaser's semantics).
 	 */
 	async commit(): Promise<void> {
 		debug("[js::commit]");
+		if (this.state !== "active") return;
 		this.state = "committed";
 		this.releaseLock();
 	}
@@ -142,11 +144,36 @@ export class BunSqliteTransaction extends BunSqliteQueryable implements Transact
 	/**
 	 * Rollback the transaction
 	 * With usePhantomQuery: false, Prisma engine sends ROLLBACK via executeRaw
-	 * This method updates state and releases the lock
+	 * This method updates state and releases the lock.
+	 * Idempotent: second call is a no-op (matches the mutex releaser's semantics).
 	 */
 	async rollback(): Promise<void> {
 		debug("[js::rollback]");
+		if (this.state !== "active") return;
 		this.state = "rolled_back";
 		this.releaseLock();
+	}
+
+	/**
+	 * Create a savepoint within the current transaction.
+	 * Routed through executeRaw so it inherits state guards and error mapping.
+	 * Names are engine-controlled — no validation, matching the official better-sqlite3 adapter.
+	 */
+	async createSavepoint(name: string): Promise<void> {
+		await this.executeRaw({ sql: `SAVEPOINT ${name}`, args: [], argTypes: [] });
+	}
+
+	/**
+	 * Roll back to a previously created savepoint.
+	 */
+	async rollbackToSavepoint(name: string): Promise<void> {
+		await this.executeRaw({ sql: `ROLLBACK TO ${name}`, args: [], argTypes: [] });
+	}
+
+	/**
+	 * Release a previously created savepoint.
+	 */
+	async releaseSavepoint(name: string): Promise<void> {
+		await this.executeRaw({ sql: `RELEASE SAVEPOINT ${name}`, args: [], argTypes: [] });
 	}
 }

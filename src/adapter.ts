@@ -28,6 +28,15 @@ export class BunSqliteAdapter extends BunSqliteQueryable implements SqlDriverAda
 	}
 
 	/**
+	 * Access the underlying bun:sqlite Database.
+	 * Exposed for migration utilities that need synchronous access to prepared statements.
+	 * Not part of the public `SqlDriverAdapter` contract — use with care.
+	 */
+	getDatabase(): Database {
+		return this.db;
+	}
+
+	/**
 	 * Execute multiple SQL statements (for migrations)
 	 */
 	async executeScript(script: string): Promise<void> {
@@ -109,7 +118,10 @@ export class BunSqliteAdapter extends BunSqliteQueryable implements SqlDriverAda
 	 */
 	getConnectionInfo() {
 		return {
-			maxBindValues: 999, // SQLite default limit
+			// Modern SQLite (3.32+) runtime default for SQLITE_LIMIT_VARIABLE_NUMBER.
+			// Bun's SQLite is compiled with MAX_VARIABLE_NUMBER=250000; the runtime
+			// default is min(compile-time max, 32766).
+			maxBindValues: 32766,
 			supportsRelationJoins: true,
 		};
 	}

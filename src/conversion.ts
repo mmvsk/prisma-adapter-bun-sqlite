@@ -186,13 +186,15 @@ export function mapRow(
 	for (let i = 0; i < row.length; i++) {
 		const value = row[i];
 
-		// Handle BLOB/Bytes - convert to array of numbers
+		// Handle BLOB/Bytes — return as Uint8Array (canonical `ResultValue` form).
+		// Bun already returns Uint8Array for BLOBs; ArrayBuffer is a defensive fallback.
 		if (value instanceof ArrayBuffer) {
-			result[i] = Array.from(new Uint8Array(value));
+			result[i] = new Uint8Array(value);
 			continue;
 		}
-		if (value instanceof Uint8Array || Buffer.isBuffer(value)) {
-			result[i] = Array.from(value);
+		if (value instanceof Uint8Array) {
+			// Buffer is a Uint8Array subclass and passes through this branch unchanged.
+			result[i] = value;
 			continue;
 		}
 

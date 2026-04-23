@@ -51,28 +51,7 @@ export class PrismaBunSqlite implements SqlMigrationAwareDriverAdapterFactory {
 	private config: PrismaBunSqliteConfig;
 
 	constructor(config: PrismaBunSqliteConfig) {
-		this.validateConfig(config);
 		this.config = config;
-	}
-
-	/**
-	 * Validate configuration options and emit deprecation warnings
-	 */
-	private validateConfig(config: PrismaBunSqliteConfig): void {
-		if (config.allowBigIntToNumberConversion !== undefined) {
-			console.warn(
-				"prisma-adapter-bun-sqlite: `allowBigIntToNumberConversion` is deprecated and ignored. " +
-				"DateTime aggregates with `unixepoch-ms` now work correctly out of the box. " +
-				"Remove this option to silence this warning."
-			);
-		}
-		if (config.allowUnsafeDateTimeAggregates !== undefined) {
-			console.warn(
-				"prisma-adapter-bun-sqlite: `allowUnsafeDateTimeAggregates` is deprecated and ignored. " +
-				"DateTime aggregates with `unixepoch-ms` now work correctly out of the box. " +
-				"Remove this option to silence this warning."
-			);
-		}
 	}
 
 	/**

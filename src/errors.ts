@@ -42,22 +42,20 @@ export const SQLITE_ERROR_MAP: Record<number, string> = {
 };
 
 /**
- * Converts SQLite errors to Prisma error format
- * Matches the official Prisma better-sqlite3 adapter error handling
+ * Converts SQLite errors to Prisma error format.
+ * Matches the official `@prisma/adapter-better-sqlite3` adapter: unrecognized
+ * errors are re-thrown so `driver-adapter-utils`' `wrapAsync` can register them
+ * into its `errorRegistry` and surface the original error (with full stack) to
+ * Prisma via `GenericJs { id }`. Wrapping here ourselves would lose the stack.
  *
  * Bun's SQLiteError structure:
  * - Most errors: { errno: 1, message: "...", code: undefined }
  * - Constraint errors: { errno: 2067, message: "...", code: "SQLITE_CONSTRAINT_UNIQUE" }
  */
 export function convertDriverError(error: any): any {
-	// Handle non-SQLite errors (e.g., internal bugs, TypeErrors)
-	// Wrap them in a generic error format for consistency
+	// Not a SQLite-shaped error (internal bug, TypeError, etc.) — rethrow.
 	if (!error?.message || (typeof error?.code !== "string" && typeof error?.errno !== "number")) {
-		return {
-			kind: "GenericJs",
-			id: 0,
-			originalMessage: String(error?.message || error || "Unknown error"),
-		};
+		throw error;
 	}
 
 	const message = error.message;
@@ -139,12 +137,9 @@ export function convertDriverError(error: any): any {
 				};
 			}
 
-			// Unrecognized SQLite error - wrap in GenericJs for consistent error handling
-			return {
-				kind: "GenericJs",
-				id: 0,
-				originalCode: code,
-				originalMessage: message,
-			};
+			// Unrecognized SQLite error — rethrow so driver-adapter-utils' wrapAsync
+			// can register the original error in its errorRegistry and surface it
+			// to Prisma with full stack trace via `GenericJs { id }`.
+			throw error;
 	}
 }

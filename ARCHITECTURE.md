@@ -9,7 +9,7 @@ This adapter implements Prisma's `SqlDriverAdapter` interface for Bun's native `
 **Goals:**
 1. Zero dependencies - only Bun's native APIs
 3. Production-ready - proper error handling, type conversions, defensive defaults
-2. Battle-tested - 135 tests including official Prisma scenarios
+2. Battle-tested - 154 tests including official Prisma scenarios
 4. Fast - leverage Bun's native performance
 
 ## File Structure
@@ -55,7 +55,8 @@ PrismaBunSqlite (factory) → creates BunSqliteAdapter
 **Row mapping (`mapRow`):**
 | SQLite Value | Prisma Output |
 |--------------|---------------|
-| `ArrayBuffer`/`Buffer` | `number[]` |
+| `Uint8Array`/`Buffer` | `Uint8Array` (pass-through) |
+| `ArrayBuffer` | `Uint8Array` |
 | `bigint` | `number` (if safe integer) or `string` |
 
 Safe BigInts are converted to numbers because Prisma's data-mapper expects `typeof value === 'number'` for both `datetime` and `bigint` field type handling (e.g., DateTime aggregates with `unixepoch-ms`).
@@ -77,6 +78,8 @@ Safe BigInts are converted to numbers because Prisma's data-mapper expects `type
 
 Bun sometimes returns only `.errno` (number) without `.code` (string), so we maintain a complete errno→code mapping.
 
+**Unrecognized errors are rethrown** (not wrapped). `driver-adapter-utils`' `wrapAsync` captures them, registers the original in its `errorRegistry`, and surfaces `GenericJs { id }` to Prisma with the full stack preserved. Wrapping here ourselves would be redundant and lossy. This matches the official `@prisma/adapter-better-sqlite3` behavior.
+
 ### Transaction Management
 
 **`transaction.ts`** implements transactions with `usePhantomQuery: false`.
@@ -96,6 +99,12 @@ async startTransaction(): Promise<Transaction> {
   return new BunSqliteTransaction(db, options, releaseLock);
 }
 ```
+
+**Savepoints:**
+`BunSqliteTransaction` implements the optional `createSavepoint` / `rollbackToSavepoint` / `releaseSavepoint` methods by emitting the corresponding `SAVEPOINT` / `ROLLBACK TO` / `RELEASE SAVEPOINT` SQL through `executeRaw`. Name validation is left to the Prisma engine — this matches the official `@prisma/adapter-better-sqlite3` adapter.
+
+**Idempotent commit/rollback:**
+`commit()` and `rollback()` no-op if the transaction is not `active`. The mutex releaser is already idempotent (via a `called` flag); the state field is kept consistent with that behavior so a stray double-call does not silently overwrite the recorded outcome.
 
 ### Column Type Detection
 
@@ -182,13 +191,14 @@ Uses Prisma-compatible `_prisma_migrations` table for tracking.
 
 ```
 tests/
-├── general.test.ts           # Core adapter (57 tests)
+├── general.test.ts           # Core adapter (65 tests)
 ├── migrations.test.ts        # Migration utilities (12 tests)
 ├── shadow-database.test.ts   # Shadow DB support (9 tests)
 ├── wal-and-types.test.ts     # WAL + type tests (18 tests)
-└── official-scenarios.test.ts # Prisma official scenarios (39 tests)
+├── official-scenarios.test.ts # Prisma official scenarios (39 tests)
+└── sanity-check.test.ts      # Sanity check utilities (11 tests)
 
-Total: 135 tests
+Total: 154 tests
 ```
 
 **Test sources:**
