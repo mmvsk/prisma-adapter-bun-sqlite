@@ -66,6 +66,7 @@ const users = await prisma.user.findMany();
 | `timestampFormat` | `"iso8601"` \| `"unixepoch-ms"` | `"iso8601"` | DateTime storage format (see [Timestamp Format](#timestamp-format)) |
 | `shadowDatabaseUrl` | `string` | `":memory:"` | Shadow DB for migrations |
 | `wal` | `boolean` \| `WalConfiguration` | `undefined` | WAL mode configuration |
+| `transactionMode` | `"deferred"` \| `"immediate"` \| `"exclusive"` | `"deferred"` | How transactions begin. Use `"immediate"` when another connection or process writes to the same file |
 
 ```typescript
 // Production configuration with WAL

@@ -105,6 +105,23 @@ export type PrismaBunSqliteOptions = {
 	 * @see WalConfiguration
 	 */
 	wal?: boolean | WalConfiguration;
+
+	/**
+	 * How transactions begin.
+	 * - `deferred`: `BEGIN DEFERRED`, SQLite's default. No lock until the first statement.
+	 * - `immediate`: `BEGIN IMMEDIATE`. Takes the write lock at once, waiting up to the busy timeout.
+	 * - `exclusive`: `BEGIN EXCLUSIVE`. Like `immediate`; outside WAL mode it also locks out readers.
+	 *
+	 * Use `immediate` when another connection or process writes to the same database file (a second
+	 * client, a worker, a backup tool such as Litestream). A deferred transaction that reads before it
+	 * writes, which Prisma's nested writes do, fails with `SQLITE_BUSY` at once if another connection
+	 * holds the write lock: SQLite does not call the busy handler for a connection that already holds a
+	 * read lock, so the busy timeout never applies.
+	 *
+	 * @default "deferred"
+	 * @see https://www.sqlite.org/lang_transaction.html
+	 */
+	transactionMode?: "deferred" | "immediate" | "exclusive";
 };
 
 /**
