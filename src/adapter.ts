@@ -16,6 +16,12 @@ import { convertDriverError } from "./errors.js";
 import { BunSqliteQueryable, debug } from "./queryable.js";
 import { AsyncMutex, BunSqliteTransaction } from "./transaction.js";
 
+const BEGIN_STATEMENTS = {
+	deferred: "BEGIN DEFERRED",
+	immediate: "BEGIN IMMEDIATE",
+	exclusive: "BEGIN EXCLUSIVE",
+} as const satisfies Record<NonNullable<PrismaBunSqliteOptions["transactionMode"]>, string>;
+
 /**
  * Main BunSqlite adapter class
  */
@@ -66,7 +72,7 @@ export class BunSqliteAdapter extends BunSqliteQueryable implements SqlDriverAda
 
 		try {
 			// Begin transaction
-			this.db.run("BEGIN");
+			this.db.run(BEGIN_STATEMENTS[this.adapterOptions?.transactionMode ?? "deferred"]);
 
 			// Create transaction object - if this fails, rollback to clean up
 			try {
